@@ -1,0 +1,23 @@
+name: diopa_generator
+description: A starting point for Dart libraries or applications.
+version: 1.0.0+2
+# homepage: https://www.example.com
+
+environment:
+  sdk: '>=2.14.0 <3.0.0'
+
+dependencies:
+  dio: ^4.0.1
+  source_gen: ^1.0.1
+  built_collection: ^5.0.0
+  code_builder: ^4.0.0
+  tuple: ^2.0.0
+  diopa: ^1.0.0
+  analyzer: ^3.0.0
+  dart_style: ^2.0.1
+  build: ^2.0.1
+
+dev_dependencies:
+  lints: ^1.0.0
+  test: ^1.17.10
+  source_gen_test: ^1.0.0
