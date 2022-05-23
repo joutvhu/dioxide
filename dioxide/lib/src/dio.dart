@@ -50,6 +50,33 @@ class DioOptions {
   const DioOptions();
 }
 
+@immutable
+class RequestTimeout {
+  /// Timeout in milliseconds for sending data.
+  /// [Dio] will throw the [DioError] with [DioErrorType.sendTimeout] type
+  ///  when time out.
+  final int? sendTimeout;
+
+  /// Timeout in milliseconds for opening url.
+  /// [Dio] will throw the [DioError] with [DioErrorType.connectTimeout] type
+  ///  when time out.
+  final int? connectTimeout;
+
+  ///  Timeout in milliseconds for receiving data.
+  ///
+  ///  Note: [receiveTimeout]  represents a timeout during data transfer! That is to say the
+  ///  client has connected to the server, and the server starts to send data to the client.
+  ///
+  /// [0] meanings no timeout limit.
+  final int? receiveTimeout;
+
+  const RequestTimeout({
+    this.sendTimeout,
+    this.connectTimeout,
+    this.receiveTimeout,
+  });
+}
+
 extension FormDataExtension on FormData {
   addList(String key, List<dynamic> values) {
     for (var value in values) {

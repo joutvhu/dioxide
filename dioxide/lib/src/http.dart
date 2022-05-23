@@ -90,7 +90,7 @@ class Method {
 /// Make a `GET` request
 ///
 /// ```
-/// @GET("ip")
+/// @GetRequest("ip")
 /// Future<String> ip(@Query('query1') String query)
 /// ```
 @immutable
@@ -182,7 +182,7 @@ class NoBody {
 /// Named pair for a form request.
 ///
 /// ```
-/// @POST("/post")
+/// @PostRequest("/post")
 /// Future<String> example(
 ///   @Field() int foo,
 ///   @Field("bar") String barbar},
@@ -212,7 +212,7 @@ class Path {
 /// Simple Example:
 ///
 ///```
-/// @GET("/get")
+/// @GetRequest("/get")
 /// Future<String> foo(@Query('bar') String query)
 ///```
 /// Calling with `foo.friends(1)` yields `/get?bar=1`.
@@ -269,7 +269,7 @@ class MultiPart extends _MimeType {
 /// Denotes a single part of a multi-part request.
 /// Part parameters may not be null.
 /// ```
-/// @POST("/post")
+/// @PostRequest("/post")
 /// @MultiPart()
 /// Future<String> example(
 ///   @Part() int foo,

@@ -14,8 +14,9 @@ import 'package:dioxide/dioxide.dart' as dioxide;
 import 'package:source_gen/source_gen.dart';
 import 'package:tuple/tuple.dart';
 
-const _analyzerIgnores =
-    '// ignore_for_file: unnecessary_brace_in_string_interps';
+import 'timeout.dart';
+
+const _analyzerIgnores = '// ignore_for_file: unnecessary_brace_in_string_interps';
 
 class DioxideOptions {
   final bool? autoCastResponse;
@@ -23,13 +24,11 @@ class DioxideOptions {
   DioxideOptions({this.autoCastResponse});
 
   DioxideOptions.fromOptions([BuilderOptions? options])
-      : autoCastResponse =
-            (options?.config['auto_cast_response']?.toString() ?? 'true') ==
-                'true';
+      : autoCastResponse = (options?.config['auto_cast_response']?.toString() ?? 'true') == 'true';
 }
 
-class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
-  static const String _baseUrlVar = 'baseUrl';
+class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> with TimeoutGenerator {
+  static const _baseUrlVar = 'baseUrl';
   static const _queryParamsVar = "queryParameters";
   static const _localHeadersVar = "_headers";
   static const _headersVar = "headers";
@@ -56,8 +55,7 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
   late dioxide.RestApi clientAnnotation;
 
   @override
-  String generateForAnnotatedElement(
-      Element element, ConstantReader annotation, BuildStep buildStep) {
+  String generateForAnnotatedElement(Element element, ConstantReader annotation, BuildStep buildStep) {
     if (element is! ClassElement) {
       final name = element.displayName;
       throw InvalidGenerationSourceError(
@@ -70,14 +68,10 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
 
   String _implementClass(ClassElement element, ConstantReader? annotation) {
     final className = element.name;
-    final serializerEnumString =
-        (annotation?.peek('serializer')?.revive().accessor);
-    final deserializerEnumString =
-        (annotation?.peek('deserializer')?.revive().accessor);
-    final serializerParser = dioxide.Parser.values
-        .firstWhereOrNull((e) => e.toString() == serializerEnumString);
-    final deserializerParser = dioxide.Parser.values
-        .firstWhereOrNull((e) => e.toString() == deserializerEnumString);
+    final serializerEnumString = (annotation?.peek('serializer')?.revive().accessor);
+    final deserializerEnumString = (annotation?.peek('deserializer')?.revive().accessor);
+    final serializerParser = dioxide.Parser.values.firstWhereOrNull((e) => e.toString() == serializerEnumString);
+    final deserializerParser = dioxide.Parser.values.firstWhereOrNull((e) => e.toString() == deserializerEnumString);
     clientAnnotation = dioxide.RestApi(
       autoCastResponse: (annotation?.peek('autoCastResponse')?.boolValue),
       baseUrl: (annotation?.peek(_baseUrlVar)?.stringValue ?? ''),
@@ -85,13 +79,13 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
       deserializer: (deserializerParser ?? dioxide.Parser.MapSerializable),
     );
     final baseUrl = clientAnnotation.baseUrl;
-    final annotClassConsts = element.constructors
-        .where((c) => !c.isFactory && !c.isDefaultConstructor);
+    final annotClassConsts = element.constructors.where((c) => !c.isFactory && !c.isDefaultConstructor);
     final classBuilder = Class((c) {
       c
         ..name = '_$className'
         ..types.addAll(element.typeParameters.map((e) => refer(e.name)))
         ..fields.addAll([_buildDioFiled(), _buildBaseUrlFiled(baseUrl)])
+        ..fields.addAll(buildTimeoutFields(element))
         ..constructors.addAll(
           annotClassConsts.map(
             (e) => _generateConstructor(baseUrl, superClassConst: e),
@@ -117,8 +111,7 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
     });
 
     final emitter = DartEmitter();
-    return DartFormatter()
-        .format([_analyzerIgnores, classBuilder.accept(emitter)].join('\n\n'));
+    return DartFormatter().format([_analyzerIgnores, classBuilder.accept(emitter)].join('\n\n'));
   }
 
   Field _buildDioFiled() => Field((m) => m
@@ -164,14 +157,11 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
                 ..name = element.name));
             }
           });
-          final paramList = constParams
-              .map((e) => (e.isNamed ? '${e.name}: ' : '') + '${e.name}');
-          c.initializers
-              .add(Code('$superConstName(' + paramList.join(',') + ')'));
+          final paramList = constParams.map((e) => (e.isNamed ? '${e.name}: ' : '') + '${e.name}');
+          c.initializers.add(Code('$superConstName(' + paramList.join(',') + ')'));
         }
         final block = [
-          if (url != null && url.isNotEmpty)
-            Code("${_baseUrlVar} ??= ${literal(url)};"),
+          if (url != null && url.isNotEmpty) Code("${_baseUrlVar} ??= ${literal(url)};"),
         ];
 
         if (!block.isEmpty) {
@@ -190,10 +180,7 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
       }).map((m) => _generateMethod(m)!);
 
   String _generateTypeParameterizedName(TypeParameterizedElement element) =>
-      element.displayName +
-      (element.typeParameters.isNotEmpty
-          ? '<${element.typeParameters.join(',')}>'
-          : '');
+      element.displayName + (element.typeParameters.isNotEmpty ? '<${element.typeParameters.join(',')}>' : '');
 
   final _methodsAnnotations = const [
     dioxide.GetRequest,
@@ -210,35 +197,30 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
 
   ConstantReader? _getMethodAnnotation(MethodElement method) {
     for (final type in _methodsAnnotations) {
-      final annot = _typeChecker(type)
-          .firstAnnotationOf(method, throwOnUnresolved: false);
+      final annot = _typeChecker(type).firstAnnotationOf(method, throwOnUnresolved: false);
       if (annot != null) return ConstantReader(annot);
     }
     return null;
   }
 
   ConstantReader? _getMethodAnnotationByType(MethodElement method, Type type) {
-    final annot =
-        _typeChecker(type).firstAnnotationOf(method, throwOnUnresolved: false);
+    final annot = _typeChecker(type).firstAnnotationOf(method, throwOnUnresolved: false);
     if (annot != null) return ConstantReader(annot);
     return null;
   }
 
   Iterable<ConstantReader> _getHeadersAnnotation(MethodElement method) {
-    final annotations = _typeChecker(dioxide.Headers)
-        .annotationsOf(method, throwOnUnresolved: false);
+    final annotations = _typeChecker(dioxide.Headers).annotationsOf(method, throwOnUnresolved: false);
     return annotations.map((extra) => ConstantReader(extra));
   }
 
   Iterable<ConstantReader> _getExtrasAnnotation(MethodElement method) {
-    final annotations = _typeChecker(dioxide.Extras)
-        .annotationsOf(method, throwOnUnresolved: false);
+    final annotations = _typeChecker(dioxide.Extras).annotationsOf(method, throwOnUnresolved: false);
     return annotations.map((extra) => ConstantReader(extra));
   }
 
   ConstantReader? _getCacheAnnotation(MethodElement method) {
-    final annotation = _typeChecker(dioxide.CacheControl)
-        .firstAnnotationOf(method, throwOnUnresolved: false);
+    final annotation = _typeChecker(dioxide.CacheControl).firstAnnotationOf(method, throwOnUnresolved: false);
     if (annotation != null) return ConstantReader(annotation);
     return null;
   }
@@ -248,36 +230,31 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
     final formUrlEncoded = _getFormUrlEncodedAnnotation(method);
 
     if (multipart != null && formUrlEncoded != null) {
-      throw InvalidGenerationSourceError(
-          'Two content-type annotation on one request ${method.name}');
+      throw InvalidGenerationSourceError('Two content-type annotation on one request ${method.name}');
     }
 
     return multipart ?? formUrlEncoded;
   }
 
   ConstantReader? _getMultipartAnnotation(MethodElement method) {
-    final annotation = _typeChecker(dioxide.MultiPart)
-        .firstAnnotationOf(method, throwOnUnresolved: false);
+    final annotation = _typeChecker(dioxide.MultiPart).firstAnnotationOf(method, throwOnUnresolved: false);
     if (annotation != null) return ConstantReader(annotation);
     return null;
   }
 
   ConstantReader? _getFormUrlEncodedAnnotation(MethodElement method) {
-    final annotation = _typeChecker(dioxide.FormUrlEncoded)
-        .firstAnnotationOf(method, throwOnUnresolved: false);
+    final annotation = _typeChecker(dioxide.FormUrlEncoded).firstAnnotationOf(method, throwOnUnresolved: false);
     if (annotation != null) return ConstantReader(annotation);
     return null;
   }
 
   ConstantReader? _getResponseTypeAnnotation(MethodElement method) {
-    final annotation = _typeChecker(dioxide.DioResponseType)
-        .firstAnnotationOf(method, throwOnUnresolved: false);
+    final annotation = _typeChecker(dioxide.DioResponseType).firstAnnotationOf(method, throwOnUnresolved: false);
     if (annotation != null) return ConstantReader(annotation);
     return null;
   }
 
-  Map<ParameterElement, ConstantReader> _getAnnotations(
-      MethodElement m, Type type) {
+  Map<ParameterElement, ConstantReader> _getAnnotations(MethodElement m, Type type) {
     var annot = <ParameterElement, ConstantReader>{};
     for (final p in m.parameters) {
       final a = _typeChecker(type).firstAnnotationOf(p);
@@ -288,8 +265,7 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
     return annot;
   }
 
-  Tuple2<ParameterElement, ConstantReader>? _getAnnotation(
-      MethodElement m, Type type) {
+  Tuple2<ParameterElement, ConstantReader>? _getAnnotation(MethodElement m, Type type) {
     for (final p in m.parameters) {
       final a = _typeChecker(type).firstAnnotationOf(p);
       if (a != null) {
@@ -300,15 +276,11 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
   }
 
   List<DartType>? _genericListOf(DartType type) {
-    return type is ParameterizedType && type.typeArguments.isNotEmpty
-        ? type.typeArguments
-        : null;
+    return type is ParameterizedType && type.typeArguments.isNotEmpty ? type.typeArguments : null;
   }
 
   DartType? _genericOf(DartType type) {
-    return type is InterfaceType && type.typeArguments.isNotEmpty
-        ? type.typeArguments.first
-        : null;
+    return type is InterfaceType && type.typeArguments.isNotEmpty ? type.typeArguments.first : null;
   }
 
   DartType? _getResponseType(DartType type) {
@@ -323,14 +295,12 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
 
   DartType? _getResponseInnerType(DartType type) {
     final generic = _genericOf(type);
-    if (generic == null ||
-        _typeChecker(Map).isExactlyType(type) ||
-        _typeChecker(BuiltMap).isExactlyType(type)) return type;
+    if (generic == null || _typeChecker(Map).isExactlyType(type) || _typeChecker(BuiltMap).isExactlyType(type))
+      return type;
 
     if (generic.isDynamic) return null;
 
-    if (_typeChecker(List).isExactlyType(type) ||
-        _typeChecker(BuiltList).isExactlyType(type)) return generic;
+    if (_typeChecker(List).isExactlyType(type) || _typeChecker(BuiltList).isExactlyType(type)) return generic;
 
     return _getResponseInnerType(generic);
   }
@@ -343,34 +313,24 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
 
     return Method((mm) {
       mm
-        ..returns =
-            refer(_displayString(m.type.returnType, withNullability: true))
+        ..returns = refer(_displayString(m.type.returnType, withNullability: true))
         ..name = m.displayName
         ..types.addAll(m.typeParameters.map((e) => refer(e.name)))
-        ..modifier = m.returnType.isDartAsyncFuture
-            ? MethodModifier.async
-            : MethodModifier.asyncStar
+        ..modifier = m.returnType.isDartAsyncFuture ? MethodModifier.async : MethodModifier.asyncStar
         ..annotations.add(CodeExpression(Code('override')));
 
       /// required parameters
-      mm.requiredParameters.addAll(m.parameters
-          .where((it) => it.isRequiredPositional)
-          .map((it) => Parameter((p) => p
-            ..name = it.name
-            ..named = it.isNamed)));
+      mm.requiredParameters.addAll(m.parameters.where((it) => it.isRequiredPositional).map((it) => Parameter((p) => p
+        ..name = it.name
+        ..named = it.isNamed)));
 
       /// optional positional or named parameters
-      mm.optionalParameters.addAll(m.parameters
-          .where((i) => i.isOptional || i.isRequiredNamed)
-          .map((it) => Parameter((p) => p
-            ..required = (it.isNamed &&
-                it.type.nullabilitySuffix == NullabilitySuffix.none &&
-                !it.hasDefaultValue)
+      mm.optionalParameters
+          .addAll(m.parameters.where((i) => i.isOptional || i.isRequiredNamed).map((it) => Parameter((p) => p
+            ..required = (it.isNamed && it.type.nullabilitySuffix == NullabilitySuffix.none && !it.hasDefaultValue)
             ..name = it.name
             ..named = it.isNamed
-            ..defaultTo = it.defaultValueCode == null
-                ? null
-                : Code(it.defaultValueCode!))));
+            ..defaultTo = it.defaultValueCode == null ? null : Code(it.defaultValueCode!))));
       mm.body = _generateRequest(m, httpMehod);
     });
   }
@@ -386,8 +346,7 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
   }
 
   Code _generateRequest(MethodElement m, ConstantReader httpMethod) {
-    final returnAsyncWrapper =
-        m.returnType.isDartAsyncFuture ? 'return' : 'yield';
+    final returnAsyncWrapper = m.returnType.isDartAsyncFuture ? 'return' : 'yield';
     final path = _generatePath(m, httpMethod);
     final blocks = <Code>[];
 
@@ -395,12 +354,10 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
 
     _generateQueries(m, blocks, _queryParamsVar);
     Map<String, Expression> headers = _generateHeaders(m);
-    blocks.add(literalMap(
-            headers.map((k, v) => MapEntry(literalString(k, raw: true), v)),
-            refer("String"),
-            refer("dynamic"))
-        .assignFinal(_localHeadersVar)
-        .statement);
+    blocks.add(
+        literalMap(headers.map((k, v) => MapEntry(literalString(k, raw: true), v)), refer("String"), refer("dynamic"))
+            .assignFinal(_localHeadersVar)
+            .statement);
 
     if (headers.isNotEmpty) {
       blocks.add(Code("${_localHeadersVar}.removeWhere((k, v) => v == null);"));
@@ -414,18 +371,15 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
       _extraVar: refer(_localExtraVar),
     };
 
-    final contentTypeInHeader = headers.entries
-        .firstWhereOrNull(
-            (i) => "Content-Type".toLowerCase() == i.key.toLowerCase())
-        ?.value;
+    final contentTypeInHeader =
+        headers.entries.firstWhereOrNull((i) => "Content-Type".toLowerCase() == i.key.toLowerCase())?.value;
     if (contentTypeInHeader != null) {
       extraOptions[_contentType] = contentTypeInHeader;
     }
 
     final contentType = _getContentTypeAnnotation(m);
     if (contentType != null) {
-      extraOptions[_contentType] =
-          literal(contentType.peek("mime")?.stringValue);
+      extraOptions[_contentType] = literal(contentType.peek("mime")?.stringValue);
     }
 
     extraOptions[_baseUrlVar] = refer(_baseUrlVar);
@@ -435,12 +389,7 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
       final v = responseType.peek("responseType")?.objectValue;
       log.info("ResponseType  :  ${v?.getField("index")?.toIntValue()}");
       final rsType = ResponseType.values.firstWhere((it) {
-        return responseType
-                .peek("responseType")
-                ?.objectValue
-                .getField('index')
-                ?.toIntValue() ==
-            it.index;
+        return responseType.peek("responseType")?.objectValue.getField('index')?.toIntValue() == it.index;
       }, orElse: () {
         log.warning("responseType cast error!!!!");
         return ResponseType.json;
@@ -454,21 +403,16 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
     namedArguments[_dataVar] = refer(_localDataVar);
 
     final cancelToken = _getAnnotation(m, dioxide.CancelRequest);
-    if (cancelToken != null)
-      namedArguments[_cancelToken] = refer(cancelToken.item1.displayName);
+    if (cancelToken != null) namedArguments[_cancelToken] = refer(cancelToken.item1.displayName);
 
     final sendProgress = _getAnnotation(m, dioxide.SendProgress);
-    if (sendProgress != null)
-      namedArguments[_onSendProgress] = refer(sendProgress.item1.displayName);
+    if (sendProgress != null) namedArguments[_onSendProgress] = refer(sendProgress.item1.displayName);
 
     final receiveProgress = _getAnnotation(m, dioxide.ReceiveProgress);
-    if (receiveProgress != null)
-      namedArguments[_onReceiveProgress] =
-          refer(receiveProgress.item1.displayName);
+    if (receiveProgress != null) namedArguments[_onReceiveProgress] = refer(receiveProgress.item1.displayName);
 
     final wrapperedReturnType = _getResponseType(m.returnType);
-    final autoCastResponse = (globalOptions.autoCastResponse ??
-        (clientAnnotation.autoCastResponse ?? true));
+    final autoCastResponse = (globalOptions.autoCastResponse ?? (clientAnnotation.autoCastResponse ?? true));
 
     final options = _parseOptions(m, namedArguments, blocks, extraOptions);
 
@@ -480,26 +424,20 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
       return Block.of(blocks);
     }
 
-    if (wrapperedReturnType == null ||
-        "void" == wrapperedReturnType.toString()) {
+    if (wrapperedReturnType == null || "void" == wrapperedReturnType.toString()) {
       blocks.add(
-        refer("await $_dioVar.fetch")
-            .call([options], {}, [refer("void")]).statement,
+        refer("await $_dioVar.fetch").call([options], {}, [refer("void")]).statement,
       );
       blocks.add(Code("$returnAsyncWrapper null;"));
       return Block.of(blocks);
     }
 
-    final bool isWrappered =
-        _typeChecker(dioxide.HttpResponse).isExactlyType(wrapperedReturnType);
-    final returnType = isWrappered
-        ? _getResponseType(wrapperedReturnType)
-        : wrapperedReturnType;
+    final bool isWrappered = _typeChecker(dioxide.HttpResponse).isExactlyType(wrapperedReturnType);
+    final returnType = isWrappered ? _getResponseType(wrapperedReturnType) : wrapperedReturnType;
     if (returnType == null || "void" == returnType.toString()) {
       if (isWrappered) {
         blocks.add(
-          refer("final $_resultVar = await $_dioVar.fetch")
-              .call([options], {}, [refer("void")]).statement,
+          refer("final $_resultVar = await $_dioVar.fetch").call([options], {}, [refer("void")]).statement,
         );
         blocks.add(Code("""
       final httpResponse = HttpResponse(null, $_resultVar);
@@ -507,21 +445,16 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
       """));
       } else {
         blocks.add(
-          refer("await $_dioVar.fetch")
-              .call([options], {}, [refer("void")]).statement,
+          refer("await $_dioVar.fetch").call([options], {}, [refer("void")]).statement,
         );
         blocks.add(Code("$returnAsyncWrapper null;"));
       }
     } else {
       final innerReturnType = _getResponseInnerType(returnType);
-      if (_typeChecker(List).isExactlyType(returnType) ||
-          _typeChecker(BuiltList).isExactlyType(returnType)) {
+      if (_typeChecker(List).isExactlyType(returnType) || _typeChecker(BuiltList).isExactlyType(returnType)) {
         if (_isBasicType(innerReturnType)) {
           blocks.add(
-            refer("await $_dioVar.fetch<List<dynamic>>")
-                .call([options])
-                .assignFinal(_resultVar)
-                .statement,
+            refer("await $_dioVar.fetch<List<dynamic>>").call([options]).assignFinal(_resultVar).statement,
           );
           blocks.add(refer('$_resultVar.data')
               .propertyIf(thisNullable: returnType.isNullable, name: 'cast')
@@ -530,10 +463,7 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
               .statement);
         } else {
           blocks.add(
-            refer("await $_dioVar.fetch<List<dynamic>>")
-                .call([options])
-                .assignFinal(_resultVar)
-                .statement,
+            refer("await $_dioVar.fetch<List<dynamic>>").call([options]).assignFinal(_resultVar).statement,
           );
           if (clientAnnotation.deserializer == dioxide.Parser.DartSingleMapper) {
             var param = refer('''<String,dynamic>{
@@ -544,15 +474,13 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
               blocks.add(refer('$_resultVar.data')
                   .conditionalIsNullIf(
                       thisNullable: returnType.isNullable,
-                      whenFalse: refer('await compute')
-                          .call([refer('_dioxideDeserialize'), param]))
+                      whenFalse: refer('await compute').call([refer('_dioxideDeserialize'), param]))
                   .assignVar('value')
                   .statement);
             } else {
               blocks.add(refer('$_resultVar.data')
                   .conditionalIsNullIf(
-                      thisNullable: returnType.isNullable,
-                      whenFalse: refer('await _dioxideDeserialize').call([param]))
+                      thisNullable: returnType.isNullable, whenFalse: refer('await _dioxideDeserialize').call([param]))
                   .assignVar('value')
                   .statement);
             }
@@ -560,12 +488,12 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
             final Reference mapperCode;
             switch (clientAnnotation.deserializer) {
               case dioxide.Parser.MapSerializable:
-                mapperCode = refer(
-                    '(dynamic i) => ${_displayString(innerReturnType)}.fromMap(i as Map<String,dynamic>)');
+                mapperCode =
+                    refer('(dynamic i) => ${_displayString(innerReturnType)}.fromMap(i as Map<String,dynamic>)');
                 break;
               case dioxide.Parser.JsonSerializable:
-                mapperCode = refer(
-                    '(dynamic i) => ${_displayString(innerReturnType)}.fromJson(i as Map<String,dynamic>)');
+                mapperCode =
+                    refer('(dynamic i) => ${_displayString(innerReturnType)}.fromJson(i as Map<String,dynamic>)');
                 break;
               case dioxide.Parser.DartJsonMapper:
                 mapperCode = refer(
@@ -585,22 +513,17 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
             );
           }
         }
-      } else if (_typeChecker(Map).isExactlyType(returnType) ||
-          _typeChecker(BuiltMap).isExactlyType(returnType)) {
+      } else if (_typeChecker(Map).isExactlyType(returnType) || _typeChecker(BuiltMap).isExactlyType(returnType)) {
         final types = _getResponseInnerTypes(returnType)!;
         blocks.add(
-          refer("await $_dioVar.fetch<Map<String,dynamic>>")
-              .call([options])
-              .assignFinal(_resultVar)
-              .statement,
+          refer("await $_dioVar.fetch<Map<String,dynamic>>").call([options]).assignFinal(_resultVar).statement,
         );
 
         /// assume the first type is a basic type
         if (types.length > 1) {
           final firstType = types[0];
           final secondType = types[1];
-          if (_typeChecker(List).isExactlyType(secondType) ||
-              _typeChecker(BuiltList).isExactlyType(secondType)) {
+          if (_typeChecker(List).isExactlyType(secondType) || _typeChecker(BuiltList).isExactlyType(secondType)) {
             final type = _getResponseType(secondType);
             final Reference mapperCode;
             var future = false;
@@ -704,8 +627,7 @@ You should create a new class to encapsulate the response.
                       thisNullable: returnType.isNullable,
                       whenFalse: refer('Map.fromEntries').call([
                         refer('await Future.wait').call([
-                          refer('$_resultVar.data!.entries.map')
-                              .call([mapperCode])
+                          refer('$_resultVar.data!.entries.map').call([mapperCode])
                         ])
                       ]))
                   .assignVar('value')
@@ -744,47 +666,33 @@ You should create a new class to encapsulate the response.
               .statement);
         } else if (returnType.toString() == 'dynamic') {
           blocks.add(
-            refer("await $_dioVar.fetch")
-                .call([options])
-                .assignFinal(_resultVar)
-                .statement,
+            refer("await $_dioVar.fetch").call([options]).assignFinal(_resultVar).statement,
           );
           blocks.add(Code("final value = $_resultVar.data;"));
         } else {
-          final fetchType = returnType.isNullable
-              ? "Map<String,dynamic>?"
-              : "Map<String,dynamic>";
+          final fetchType = returnType.isNullable ? "Map<String,dynamic>?" : "Map<String,dynamic>";
           blocks.add(
-            refer("await $_dioVar.fetch<$fetchType>")
-                .call([options])
-                .assignFinal(_resultVar)
-                .statement,
+            refer("await $_dioVar.fetch<$fetchType>").call([options]).assignFinal(_resultVar).statement,
           );
           Expression mapperCode;
           switch (clientAnnotation.deserializer) {
             case dioxide.Parser.MapSerializable:
-              mapperCode = refer(
-                  '${_displayString(returnType)}.fromMap($_resultVar.data!)');
+              mapperCode = refer('${_displayString(returnType)}.fromMap($_resultVar.data!)');
               break;
             case dioxide.Parser.JsonSerializable:
-              final genericArgumentFactories =
-                  isGenericArgumentFactories(returnType);
+              final genericArgumentFactories = isGenericArgumentFactories(returnType);
 
-              var typeArgs = returnType is ParameterizedType
-                  ? returnType.typeArguments
-                  : [];
+              var typeArgs = returnType is ParameterizedType ? returnType.typeArguments : [];
 
               if (typeArgs.length > 0 && genericArgumentFactories) {
                 mapperCode = refer(
                     '${_displayString(returnType)}.fromJson($_resultVar.data!,${_getInnerJsonSerializableMapperFn(returnType)})');
               } else {
-                mapperCode = refer(
-                    '${_displayString(returnType)}.fromJson($_resultVar.data!)');
+                mapperCode = refer('${_displayString(returnType)}.fromJson($_resultVar.data!)');
               }
               break;
             case dioxide.Parser.DartJsonMapper:
-              mapperCode = refer(
-                  'JsonMapper.fromMap<${_displayString(returnType)}>($_resultVar.data!)!');
+              mapperCode = refer('JsonMapper.fromMap<${_displayString(returnType)}>($_resultVar.data!)!');
               break;
             case dioxide.Parser.DartSingleMapper:
               mapperCode = refer('''
@@ -822,12 +730,10 @@ You should create a new class to encapsulate the response.
     if (metaData == null || dartType == null) {
       return false;
     }
-    final constDartObj =
-        metaData.isNotEmpty ? metaData.first.computeConstantValue() : null;
+    final constDartObj = metaData.isNotEmpty ? metaData.first.computeConstantValue() : null;
     var genericArgumentFactories = false;
     if (constDartObj != null &&
-        (!_typeChecker(List).isExactlyType(dartType) &&
-            !_typeChecker(BuiltList).isExactlyType(dartType))) {
+        (!_typeChecker(List).isExactlyType(dartType) && !_typeChecker(BuiltList).isExactlyType(dartType))) {
       try {
         final annotation = ConstantReader(constDartObj);
         final obj = (annotation.peek('genericArgumentFactories'));
@@ -842,18 +748,14 @@ You should create a new class to encapsulate the response.
   String _getInnerJsonSerializableMapperFn(DartType dartType) {
     var typeArgs = dartType is ParameterizedType ? dartType.typeArguments : [];
     if (typeArgs.length > 0) {
-      if (_typeChecker(List).isExactlyType(dartType) ||
-          _typeChecker(BuiltList).isExactlyType(dartType)) {
+      if (_typeChecker(List).isExactlyType(dartType) || _typeChecker(BuiltList).isExactlyType(dartType)) {
         var genericType = _getResponseType(dartType);
-        var typeArgs =
-            genericType is ParameterizedType ? genericType.typeArguments : [];
+        var typeArgs = genericType is ParameterizedType ? genericType.typeArguments : [];
         var mapperVal;
 
         var genericTypeString = "${_displayString(genericType)}";
 
-        if (typeArgs.length > 0 &&
-            isGenericArgumentFactories(genericType) &&
-            genericType != null) {
+        if (typeArgs.length > 0 && isGenericArgumentFactories(genericType) && genericType != null) {
           mapperVal = """
     (json)=> (json as List<dynamic>)
             .map<${genericTypeString}>((i) => ${genericTypeString}.fromJson(
@@ -894,8 +796,7 @@ You should create a new class to encapsulate the response.
               mappedVal +=
                   "(json)=>${_displayString(arg)}.fromJson(json as Map<String,dynamic>,${_getInnerJsonSerializableMapperFn(arg)}),";
             else
-              mappedVal +=
-                  "(json)=>${_displayString(arg)}.fromJson(json as Map<String,dynamic>),";
+              mappedVal += "(json)=>${_displayString(arg)}.fromJson(json as Map<String,dynamic>),";
           }
           else {
             mappedVal += "${_getInnerJsonSerializableMapperFn(arg)}";
@@ -915,24 +816,18 @@ You should create a new class to encapsulate the response.
   String _getInnerJsonDeSerializableMapperFn(DartType dartType) {
     var typeArgs = dartType is ParameterizedType ? dartType.typeArguments : [];
     if (typeArgs.length > 0) {
-      if (_typeChecker(List).isExactlyType(dartType) ||
-          _typeChecker(BuiltList).isExactlyType(dartType)) {
+      if (_typeChecker(List).isExactlyType(dartType) || _typeChecker(BuiltList).isExactlyType(dartType)) {
         var genericType = _getResponseType(dartType);
-        var typeArgs =
-            genericType is ParameterizedType ? genericType.typeArguments : [];
+        var typeArgs = genericType is ParameterizedType ? genericType.typeArguments : [];
         var mapperVal;
 
-        if (typeArgs.length > 0 &&
-            isGenericArgumentFactories(genericType) &&
-            genericType != null) {
-          mapperVal =
-              '(value) => value.map((value) => ${_getInnerJsonDeSerializableMapperFn(genericType)}).toList()';
+        if (typeArgs.length > 0 && isGenericArgumentFactories(genericType) && genericType != null) {
+          mapperVal = '(value) => value.map((value) => ${_getInnerJsonDeSerializableMapperFn(genericType)}).toList()';
         } else {
           if (_isBasicType(genericType)) {
             mapperVal = '(value) => value';
           } else {
-            mapperVal =
-                '(value) => value.map((value) => value.toJson()).toList()';
+            mapperVal = '(value) => value.map((value) => value.toJson()).toList()';
           }
         }
         return mapperVal;
@@ -945,8 +840,7 @@ You should create a new class to encapsulate the response.
             mappedVal = "${_getInnerJsonDeSerializableMapperFn(arg)}";
           } else {
             if (isGenericArgumentFactories(arg))
-              mappedVal =
-                  '(value) => value.toJson(${_getInnerJsonDeSerializableMapperFn(arg)})';
+              mappedVal = '(value) => value.toJson(${_getInnerJsonDeSerializableMapperFn(arg)})';
             else {
               mappedVal = "(value) => value";
             }
@@ -966,15 +860,11 @@ You should create a new class to encapsulate the response.
     }
   }
 
-  Expression _parseOptions(
-      MethodElement m,
-      Map<String, Expression> namedArguments,
-      List<Code> blocks,
+  Expression _parseOptions(MethodElement m, Map<String, Expression> namedArguments, List<Code> blocks,
       Map<String, Expression> extraOptions) {
     final annoOptions = _getAnnotation(m, dioxide.DioOptions);
     if (annoOptions == null) {
-      final args = Map<String, Expression>.from(extraOptions)
-        ..addAll(namedArguments);
+      final args = Map<String, Expression>.from(extraOptions)..addAll(namedArguments);
       final path = args.remove(_path)!;
       final dataVar = args.remove(_dataVar)!;
       final queryParams = args.remove(_queryParamsVar)!;
@@ -985,10 +875,7 @@ You should create a new class to encapsulate the response.
 
       final type = refer(_displayString(_getResponseType(m.returnType)));
 
-      final composeArguments = <String, Expression>{
-        _queryParamsVar: queryParams,
-        _dataVar: dataVar
-      };
+      final composeArguments = <String, Expression>{_queryParamsVar: queryParams, _dataVar: dataVar};
       if (cancelToken != null) {
         composeArguments[_cancelToken] = cancelToken;
       }
@@ -998,7 +885,6 @@ You should create a new class to encapsulate the response.
       if (receiveProgress != null) {
         composeArguments[_onReceiveProgress] = receiveProgress;
       }
-
       return refer('_setStreamType').call([
         refer("Options")
             .newInstance([], args)
@@ -1008,30 +894,25 @@ You should create a new class to encapsulate the response.
               composeArguments,
             )
             .property('copyWith')
-            .call([], {
-              _baseUrlVar: baseUrl.ifNullThen(
-                  refer(_dioVar).property('options').property('baseUrl'))
-            })
+            .call(
+                [],
+                {
+                  _baseUrlVar: baseUrl.ifNullThen(refer(_dioVar).property('options').property('baseUrl')),
+                }..addAll(buildTimeoutOptions(m)))
       ], {}, [
         type
       ]);
     } else {
       hasCustomOptions = true;
-      blocks.add(refer("newRequestOptions")
-          .call([refer(annoOptions.item1.displayName)])
-          .assignFinal("newOptions")
-          .statement);
+      blocks.add(
+          refer("newRequestOptions").call([refer(annoOptions.item1.displayName)]).assignFinal("newOptions").statement);
       final newOptions = refer("newOptions");
-      blocks.add(newOptions
-          .property(_extraVar)
-          .property('addAll')
-          .call([extraOptions.remove(_extraVar)!]).statement);
-      blocks.add(newOptions.property('headers').property('addAll').call(
-          [refer(_dioVar).property('options').property('headers')]).statement);
+      blocks.add(newOptions.property(_extraVar).property('addAll').call([extraOptions.remove(_extraVar)!]).statement);
       blocks.add(newOptions
           .property('headers')
           .property('addAll')
-          .call([extraOptions.remove('headers')!]).statement);
+          .call([refer(_dioVar).property('options').property('headers')]).statement);
+      blocks.add(newOptions.property('headers').property('addAll').call([extraOptions.remove('headers')!]).statement);
       return newOptions
           .property('copyWith')
           .call(
@@ -1039,8 +920,9 @@ You should create a new class to encapsulate the response.
               Map.from(extraOptions)
                 ..[_queryParamsVar] = namedArguments[_queryParamsVar]!
                 ..[_path] = namedArguments[_path]!
-                ..[_baseUrlVar] = extraOptions.remove(_baseUrlVar)!.ifNullThen(
-                    refer(_dioVar).property('options').property('baseUrl')))
+                ..[_baseUrlVar] =
+                    extraOptions.remove(_baseUrlVar)!.ifNullThen(refer(_dioVar).property('options').property('baseUrl'))
+                ..addAll(buildTimeoutOptions(m)))
           .cascade('data')
           .assign(namedArguments[_dataVar]!);
     }
@@ -1126,8 +1008,7 @@ You should create a new class to encapsulate the response.
         ..requiredParameters = ListBuilder([optionsParam])
         ..returns = refer('Future<T>')
         ..modifier = MethodModifier.async
-        ..body = Code(
-            '''dynamic result = dioxideSerialize(args['dataType'] as String, args['data']);
+        ..body = Code('''dynamic result = dioxideSerialize(args['dataType'] as String, args['data']);
     if (result is Future) {
       return await result as T;
     } else {
@@ -1150,8 +1031,7 @@ You should create a new class to encapsulate the response.
         ..requiredParameters = ListBuilder([optionsParam])
         ..returns = refer('Future<T>')
         ..modifier = MethodModifier.async
-        ..body = Code(
-            '''dynamic result = dioxideDeserialize(args['resultType'] as String, args['data']);
+        ..body = Code('''dynamic result = dioxideDeserialize(args['resultType'] as String, args['data']);
     if (result is Future) {
       return await result as T;
     } else {
@@ -1178,15 +1058,12 @@ You should create a new class to encapsulate the response.
     return _isBasicType(innnerType);
   }
 
-  void _generateQueries(
-      MethodElement m, List<Code> blocks, String _queryParamsVar) {
+  void _generateQueries(MethodElement m, List<Code> blocks, String _queryParamsVar) {
     final queries = _getAnnotations(m, dioxide.Query);
     final queryParameters = queries.map((p, ConstantReader r) {
       final key = r.peek("value")?.stringValue ?? p.displayName;
       final Expression value;
-      if (_isBasicType(p.type) ||
-          p.type.isDartCoreList ||
-          p.type.isDartCoreMap) {
+      if (_isBasicType(p.type) || p.type.isDartCoreList || p.type.isDartCoreMap) {
         value = refer(p.displayName);
       } else {
         switch (clientAnnotation.serializer) {
@@ -1217,9 +1094,7 @@ You should create a new class to encapsulate the response.
     });
 
     final queryMap = _getAnnotations(m, dioxide.Queries);
-    blocks.add(literalMap(queryParameters, refer("String"), refer("dynamic"))
-        .assignFinal(_queryParamsVar)
-        .statement);
+    blocks.add(literalMap(queryParameters, refer("String"), refer("dynamic")).assignFinal(_queryParamsVar).statement);
     for (final p in queryMap.keys) {
       final type = p.type;
       final displayName = p.displayName;
@@ -1265,34 +1140,27 @@ You should create a new class to encapsulate the response.
       blocks.add(refer('$_queryParamsVar.addAll').call([expression]).statement);
     }
 
-    if (m.parameters
-        .any((p) => (p.type.nullabilitySuffix == NullabilitySuffix.question))) {
+    if (m.parameters.any((p) => (p.type.nullabilitySuffix == NullabilitySuffix.question))) {
       blocks.add(Code("$_queryParamsVar.removeWhere((k, v) => v == null);"));
     }
   }
 
-  void _generateRequestBody(
-      List<Code> blocks, String _dataVar, MethodElement m) {
+  void _generateRequestBody(List<Code> blocks, String _dataVar, MethodElement m) {
     final _noBody = _getMethodAnnotationByType(m, dioxide.NoBody);
     if (_noBody != null) {
-      blocks
-          .add(refer('null').assignFinal(_dataVar, refer('String?')).statement);
+      blocks.add(refer('null').assignFinal(_dataVar, refer('String?')).statement);
       return;
     }
 
     var annotation = _getAnnotation(m, dioxide.Body);
     final _bodyName = annotation?.item1;
     if (_bodyName != null) {
-      final nullToAbsent =
-          annotation!.item2.peek('nullToAbsent')?.boolValue ?? false;
-      final toFormData =
-          annotation!.item2.peek('toFormData')?.boolValue ?? false;
+      final nullToAbsent = annotation!.item2.peek('nullToAbsent')?.boolValue ?? false;
+      final toFormData = annotation!.item2.peek('toFormData')?.boolValue ?? false;
       final bodyTypeElement = _bodyName.type.element;
       final _targetVar = toFormData ? _tempDataVar : _dataVar;
       if (TypeChecker.fromRuntime(Map).isAssignableFromType(_bodyName.type)) {
-        blocks.add(literalMap({}, refer("String"), refer("dynamic"))
-            .assignFinal(_targetVar)
-            .statement);
+        blocks.add(literalMap({}, refer("String"), refer("dynamic")).assignFinal(_targetVar).statement);
 
         blocks.add(refer("$_targetVar.addAll").call([
           refer(
@@ -1302,13 +1170,10 @@ You should create a new class to encapsulate the response.
           blocks.add(Code("$_targetVar.removeWhere((k, v) => v == null);"));
         }
         if (toFormData) {
-          blocks.add(refer('FormData.fromMap(${_targetVar})')
-              .assignFinal(_dataVar)
-              .statement);
+          blocks.add(refer('FormData.fromMap(${_targetVar})').assignFinal(_dataVar).statement);
         }
       } else if (bodyTypeElement != null &&
-          ((_typeChecker(List).isExactly(bodyTypeElement) ||
-                  _typeChecker(BuiltList).isExactly(bodyTypeElement)) &&
+          ((_typeChecker(List).isExactly(bodyTypeElement) || _typeChecker(BuiltList).isExactly(bodyTypeElement)) &&
               !_isBasicInnerType(_bodyName.type))) {
         switch (clientAnnotation.serializer) {
           case dioxide.Parser.JsonSerializable:
@@ -1332,18 +1197,12 @@ You should create a new class to encapsulate the response.
             break;
         }
         if (toFormData) {
-          blocks.add(
-              refer('''FormData().addList('${_bodyName}', ${_targetVar})''')
-                  .assignFinal(_dataVar)
-                  .statement);
+          blocks.add(refer('''FormData().addList('${_bodyName}', ${_targetVar})''').assignFinal(_dataVar).statement);
         }
-      } else if (bodyTypeElement != null &&
-          _typeChecker(File).isExactly(bodyTypeElement)) {
+      } else if (bodyTypeElement != null && _typeChecker(File).isExactly(bodyTypeElement)) {
         blocks.add(refer("Stream")
             .property("fromIterable")
-            .call([
-              refer("${_bodyName.displayName}.readAsBytesSync().map((i)=>[i])")
-            ])
+            .call([refer("${_bodyName.displayName}.readAsBytesSync().map((i)=>[i])")])
             .assignFinal(_dataVar)
             .statement);
       } else if (_bodyName.type.element is ClassElement) {
@@ -1351,53 +1210,38 @@ You should create a new class to encapsulate the response.
         if (clientAnnotation.serializer == dioxide.Parser.MapSerializable) {
           final toMap = ele.lookUpMethod('toMap', ele.library);
           if (toMap == null) {
-            log.warning(
-                "${_displayString(_bodyName.type)} must provide a `toMap()` method which return a Map.\n"
+            log.warning("${_displayString(_bodyName.type)} must provide a `toMap()` method which return a Map.\n"
                 "It is programmer's responsibility to make sure the ${_bodyName.type} is properly serialized");
-            blocks.add(
-                refer(_bodyName.displayName).assignFinal(_dataVar).statement);
+            blocks.add(refer(_bodyName.displayName).assignFinal(_dataVar).statement);
           } else {
-            blocks.add(literalMap({}, refer("String"), refer("dynamic"))
-                .assignFinal(_targetVar)
-                .statement);
-            if (_bodyName.type.nullabilitySuffix !=
-                NullabilitySuffix.question) {
-              blocks.add(refer("$_targetVar.addAll")
-                  .call([refer("${_bodyName.displayName}.toMap()")]).statement);
+            blocks.add(literalMap({}, refer("String"), refer("dynamic")).assignFinal(_targetVar).statement);
+            if (_bodyName.type.nullabilitySuffix != NullabilitySuffix.question) {
+              blocks.add(refer("$_targetVar.addAll").call([refer("${_bodyName.displayName}.toMap()")]).statement);
             } else {
-              blocks.add(refer("$_targetVar.addAll").call([
-                refer("${_bodyName.displayName}?.toMap() ?? <String,dynamic>{}")
-              ]).statement);
+              blocks.add(refer("$_targetVar.addAll")
+                  .call([refer("${_bodyName.displayName}?.toMap() ?? <String,dynamic>{}")]).statement);
             }
             if (toFormData) {
-              blocks.add(refer('FormData.fromMap(${_targetVar})')
-                  .assignFinal(_dataVar).statement);
+              blocks.add(refer('FormData.fromMap(${_targetVar})').assignFinal(_dataVar).statement);
             }
           }
         } else {
           if (_missingToJson(ele)) {
-            log.warning(
-                "${_displayString(_bodyName.type)} must provide a `toJson()` method which return a Map.\n"
+            log.warning("${_displayString(_bodyName.type)} must provide a `toJson()` method which return a Map.\n"
                 "It is programmer's responsibility to make sure the ${_displayString(_bodyName.type)} is properly serialized");
-            blocks.add(
-                refer(_bodyName.displayName).assignFinal(_dataVar).statement);
+            blocks.add(refer(_bodyName.displayName).assignFinal(_dataVar).statement);
           } else if (_missingSerialize(ele.enclosingElement, _bodyName.type)) {
             log.warning(
                 "${_displayString(_bodyName.type)} must provide a `serialize${_displayString(_bodyName.type)}()` method which returns a Map.\n"
                 "It is programmer's responsibility to make sure the ${_displayString(_bodyName.type)} is properly serialized");
-            blocks.add(
-                refer(_bodyName.displayName).assignFinal(_dataVar).statement);
+            blocks.add(refer(_bodyName.displayName).assignFinal(_dataVar).statement);
           } else {
-            blocks.add(literalMap({}, refer("String"), refer("dynamic"))
-                .assignFinal(_targetVar)
-                .statement);
+            blocks.add(literalMap({}, refer("String"), refer("dynamic")).assignFinal(_targetVar).statement);
 
             final _bodyType = _bodyName.type;
-            final genericArgumentFactories =
-                isGenericArgumentFactories(_bodyType);
+            final genericArgumentFactories = isGenericArgumentFactories(_bodyType);
 
-            var typeArgs =
-                _bodyType is ParameterizedType ? _bodyType.typeArguments : [];
+            var typeArgs = _bodyType is ParameterizedType ? _bodyType.typeArguments : [];
 
             String toJsonCode = '';
             if (typeArgs.isNotEmpty && genericArgumentFactories) {
@@ -1407,21 +1251,16 @@ You should create a new class to encapsulate the response.
             switch (clientAnnotation.serializer) {
               case dioxide.Parser.JsonSerializable:
               case dioxide.Parser.DartJsonMapper:
-                if (_bodyName.type.nullabilitySuffix !=
-                    NullabilitySuffix.question) {
-                  blocks.add(refer("$_targetVar.addAll").call([
-                    refer('${_bodyName.displayName}.toJson($toJsonCode)')
-                  ]).statement);
+                if (_bodyName.type.nullabilitySuffix != NullabilitySuffix.question) {
+                  blocks.add(refer("$_targetVar.addAll")
+                      .call([refer('${_bodyName.displayName}.toJson($toJsonCode)')]).statement);
                 } else {
-                  blocks.add(refer("$_targetVar.addAll").call([
-                    refer(
-                        '${_bodyName.displayName}?.toJson($toJsonCode) ?? <String,dynamic>{}')
-                  ]).statement);
+                  blocks.add(refer("$_targetVar.addAll")
+                      .call([refer('${_bodyName.displayName}?.toJson($toJsonCode) ?? <String,dynamic>{}')]).statement);
                 }
                 break;
               case dioxide.Parser.DartSingleMapper:
-                if (_bodyName.type.nullabilitySuffix !=
-                    NullabilitySuffix.question) {
+                if (_bodyName.type.nullabilitySuffix != NullabilitySuffix.question) {
                   blocks.add(refer("$_targetVar.addAll").call([
                     refer('''
                     await ${clientAnnotation.compute ? 'compute(_dioxideSerialize,' : '_dioxideSerialize('}
@@ -1451,15 +1290,13 @@ You should create a new class to encapsulate the response.
               blocks.add(Code("$_targetVar.removeWhere((k, v) => v == null);"));
             }
             if (toFormData) {
-              blocks.add(refer('FormData.fromMap(${_targetVar})')
-                  .assignFinal(_dataVar).statement);
+              blocks.add(refer('FormData.fromMap(${_targetVar})').assignFinal(_dataVar).statement);
             }
           }
         }
       } else {
         /// @Body annotations with no type are assinged as is
-        blocks
-            .add(refer(_bodyName.displayName).assignFinal(_dataVar).statement);
+        blocks.add(refer(_bodyName.displayName).assignFinal(_dataVar).statement);
       }
 
       return;
@@ -1471,8 +1308,7 @@ You should create a new class to encapsulate the response.
       final fieldName = r.peek("value")?.stringValue ?? p.displayName;
       final isFileField = _typeChecker(File).isAssignableFromType(p.type);
       if (isFileField) {
-        log.severe(
-            'File is not support by @Field(). Please use @Part() instead.');
+        log.severe('File is not support by @Field(). Please use @Part() instead.');
       }
       return MapEntry(literal(fieldName), refer(p.displayName));
     });
@@ -1489,27 +1325,21 @@ You should create a new class to encapsulate the response.
     if (parts.isNotEmpty) {
       if (m.parameters.length == 1 && m.parameters.first.type.isDartCoreMap) {
         blocks.add(refer('FormData')
-            .newInstanceNamed('fromMap',
-                [CodeExpression(Code(m.parameters.first.displayName))])
+            .newInstanceNamed('fromMap', [CodeExpression(Code(m.parameters.first.displayName))])
             .assignFinal(_dataVar)
             .statement);
         return;
-      } else if (m.parameters.length == 2 &&
-          m.parameters[1].type.isDartCoreMap) {
+      } else if (m.parameters.length == 2 && m.parameters[1].type.isDartCoreMap) {
         blocks.add(refer('FormData')
-            .newInstanceNamed(
-                'fromMap', [CodeExpression(Code(m.parameters[1].displayName))])
+            .newInstanceNamed('fromMap', [CodeExpression(Code(m.parameters[1].displayName))])
             .assignFinal(_dataVar)
             .statement);
         return;
       }
-      blocks.add(
-          refer('FormData').newInstance([]).assignFinal(_dataVar).statement);
+      blocks.add(refer('FormData').newInstance([]).assignFinal(_dataVar).statement);
 
       parts.forEach((p, r) {
-        final fieldName = r.peek("name")?.stringValue ??
-            r.peek("value")?.stringValue ??
-            p.displayName;
+        final fieldName = r.peek("name")?.stringValue ?? r.peek("value")?.stringValue ?? p.displayName;
         final isFileField = _typeChecker(File).isAssignableFromType(p.type);
         final contentType = r.peek('contentType')?.stringValue;
 
@@ -1517,48 +1347,36 @@ You should create a new class to encapsulate the response.
           final fileNameValue = r.peek("fileName")?.stringValue;
           final fileName = fileNameValue != null
               ? literalString(fileNameValue)
-              : refer(p.displayName)
-                  .property('path.split(Platform.pathSeparator).last');
+              : refer(p.displayName).property('path.split(Platform.pathSeparator).last');
 
           final uploadFileInfo = refer('$MultipartFile.fromFileSync').call([
             refer(p.displayName).property('path')
           ], {
             'filename': fileName,
             if (contentType != null)
-              'contentType':
-                  refer("MediaType", 'package:http_parser/http_parser.dart')
-                      .property('parse')
-                      .call([literal(contentType)])
+              'contentType': refer("MediaType", 'package:http_parser/http_parser.dart')
+                  .property('parse')
+                  .call([literal(contentType)])
           });
 
-          final optinalFile = m.parameters
-                  .firstWhereOrNull((pp) => pp.displayName == p.displayName)
-                  ?.isOptional ??
-              false;
+          final optinalFile =
+              m.parameters.firstWhereOrNull((pp) => pp.displayName == p.displayName)?.isOptional ?? false;
 
-          final returnCode =
-              refer(_dataVar).property('files').property("add").call([
+          final returnCode = refer(_dataVar).property('files').property("add").call([
             refer("MapEntry").newInstance([literal(fieldName), uploadFileInfo])
           ]).statement;
           if (optinalFile) {
-            final condication =
-                refer(p.displayName).notEqualTo(literalNull).code;
-            blocks.addAll(
-                [Code("if("), condication, Code(") {"), returnCode, Code("}")]);
+            final condication = refer(p.displayName).notEqualTo(literalNull).code;
+            blocks.addAll([Code("if("), condication, Code(") {"), returnCode, Code("}")]);
           } else {
             blocks.add(returnCode);
           }
         } else if (_displayString(p.type) == "List<int>") {
-          final optionalFile = m.parameters
-                  .firstWhereOrNull((pp) => pp.displayName == p.displayName)
-                  ?.isOptional ??
-              false;
+          final optionalFile =
+              m.parameters.firstWhereOrNull((pp) => pp.displayName == p.displayName)?.isOptional ?? false;
           final fileName = r.peek("fileName")?.stringValue;
-          final conType = contentType == null
-              ? ""
-              : 'contentType: MediaType.parse(${literal(contentType)}),';
-          final returnCode =
-              refer(_dataVar).property('files').property("add").call([
+          final conType = contentType == null ? "" : 'contentType: MediaType.parse(${literal(contentType)}),';
+          final returnCode = refer(_dataVar).property('files').property("add").call([
             refer('''
                   MapEntry(
                 '${fieldName}',
@@ -1571,22 +1389,17 @@ You should create a new class to encapsulate the response.
           ]).statement;
           if (optionalFile) {
             final condition = refer(p.displayName).notEqualTo(literalNull).code;
-            blocks.addAll(
-                [Code("if("), condition, Code(") {"), returnCode, Code("}")]);
+            blocks.addAll([Code("if("), condition, Code(") {"), returnCode, Code("}")]);
           } else {
             blocks.add(returnCode);
           }
-        } else if (_typeChecker(List).isExactlyType(p.type) ||
-            _typeChecker(BuiltList).isExactlyType(p.type)) {
+        } else if (_typeChecker(List).isExactlyType(p.type) || _typeChecker(BuiltList).isExactlyType(p.type)) {
           var innerType = _genericOf(p.type);
 
           if (_displayString(innerType) == "List<int>") {
             final fileName = r.peek("fileName")?.stringValue;
-            final conType = contentType == null
-                ? ""
-                : 'contentType: MediaType.parse(${literal(contentType)}),';
-            blocks
-                .add(refer(_dataVar).property('files').property("addAll").call([
+            final conType = contentType == null ? "" : 'contentType: MediaType.parse(${literal(contentType)}),';
+            blocks.add(refer(_dataVar).property('files').property("addAll").call([
               refer('''
                   ${p.displayName}.map((i) => MapEntry(
                 '${fieldName}',
@@ -1603,25 +1416,18 @@ You should create a new class to encapsulate the response.
                       _typeChecker(List).isExactlyType(innerType) ||
                       _typeChecker(BuiltList).isExactlyType(innerType)))) {
             var value = _isBasicType(innerType) ? 'i' : 'jsonEncode(i)';
-            var nullableInfix =
-                (p.type.nullabilitySuffix == NullabilitySuffix.question)
-                    ? '?'
-                    : '';
+            var nullableInfix = (p.type.nullabilitySuffix == NullabilitySuffix.question) ? '?' : '';
             blocks.add(refer('''
             ${p.displayName}$nullableInfix.forEach((i){
               ${_dataVar}.fields.add(MapEntry(${literal(fieldName)},${value}));
             })
             ''').statement);
-          } else if (innerType != null &&
-              _typeChecker(File).isExactlyType(innerType)) {
-            final conType = contentType == null
-                ? ""
-                : 'contentType: MediaType.parse(${literal(contentType)}),';
+          } else if (innerType != null && _typeChecker(File).isExactlyType(innerType)) {
+            final conType = contentType == null ? "" : 'contentType: MediaType.parse(${literal(contentType)}),';
             if (p.type.isNullable) {
               blocks.add(Code("if (${p.displayName} != null) {"));
             }
-            blocks
-                .add(refer(_dataVar).property('files').property("addAll").call([
+            blocks.add(refer(_dataVar).property('files').property("addAll").call([
               refer('''
                   ${p.displayName}.map((i) => MapEntry(
                 '${fieldName}',
@@ -1634,13 +1440,11 @@ You should create a new class to encapsulate the response.
             if (p.type.isNullable) {
               blocks.add(Code("}"));
             }
-          } else if (innerType != null &&
-              _typeChecker(MultipartFile).isExactlyType(innerType)) {
+          } else if (innerType != null && _typeChecker(MultipartFile).isExactlyType(innerType)) {
             if (p.type.isNullable) {
               blocks.add(Code("if (${p.displayName} != null) {"));
             }
-            blocks
-                .add(refer(_dataVar).property('files').property("addAll").call([
+            blocks.add(refer(_dataVar).property('files').property("addAll").call([
               refer('''
                   ${p.displayName}.map((i) => MapEntry(
                 '${fieldName}',
@@ -1655,10 +1459,8 @@ You should create a new class to encapsulate the response.
             if (_missingToJson(ele)) {
               throw Exception("toJson() method have to add to ${p.type}");
             } else {
-              blocks
-                  .add(refer(_dataVar).property('fields').property("add").call([
-                refer("MapEntry").newInstance(
-                    [literal(fieldName), refer("jsonEncode(${p.displayName})")])
+              blocks.add(refer(_dataVar).property('fields').property("add").call([
+                refer("MapEntry").newInstance([literal(fieldName), refer("jsonEncode(${p.displayName})")])
               ]).statement);
             }
           } else {
@@ -1680,11 +1482,9 @@ You should create a new class to encapsulate the response.
           if (p.type.nullabilitySuffix == NullabilitySuffix.question) {
             blocks.add(Code("}"));
           }
-        } else if (_typeChecker(Map).isExactlyType(p.type) ||
-            _typeChecker(BuiltMap).isExactlyType(p.type)) {
+        } else if (_typeChecker(Map).isExactlyType(p.type) || _typeChecker(BuiltMap).isExactlyType(p.type)) {
           blocks.add(refer(_dataVar).property('fields').property("add").call([
-            refer("MapEntry").newInstance(
-                [literal(fieldName), refer("jsonEncode(${p.displayName})")])
+            refer("MapEntry").newInstance([literal(fieldName), refer("jsonEncode(${p.displayName})")])
           ]).statement);
         } else if (p.type.element is ClassElement) {
           final ele = p.type.element as ClassElement;
@@ -1701,8 +1501,7 @@ You should create a new class to encapsulate the response.
           }
         } else {
           blocks.add(refer(_dataVar).property('fields').property("add").call([
-            refer("MapEntry")
-                .newInstance([literal(fieldName), refer(p.displayName)])
+            refer("MapEntry").newInstance([literal(fieldName), refer(p.displayName)])
           ]).statement);
         }
       });
@@ -1710,17 +1509,14 @@ You should create a new class to encapsulate the response.
     }
 
     /// There is no body
-    blocks.add(literalMap({}, refer("String"), refer("dynamic"))
-        .assignFinal(_dataVar)
-        .statement);
+    blocks.add(literalMap({}, refer("String"), refer("dynamic")).assignFinal(_dataVar).statement);
   }
 
   Map<String, Expression> _generateHeaders(MethodElement m) {
     final headers = <String, Expression>{};
     _getHeadersAnnotation(m).forEach((anno) {
-      headers.addAll((anno?.peek("value")?.mapValue ?? {}).map((k, v) =>
-              MapEntry(
-                  k?.toStringValue() ?? 'null', literal(v?.toStringValue()))) ??
+      headers.addAll((anno?.peek("value")?.mapValue ?? {})
+              .map((k, v) => MapEntry(k?.toStringValue() ?? 'null', literal(v?.toStringValue()))) ??
           {});
     });
 
@@ -1748,8 +1544,7 @@ You should create a new class to encapsulate the response.
       final noStore = cache.peek('noStore')?.boolValue;
       final noTransform = cache.peek('noTransform')?.boolValue;
       final onlyIfCached = cache.peek('onlyIfCached')?.boolValue;
-      final other = (cache.peek('other')?.listValue ?? const [])
-          .map((e) => e.toStringValue());
+      final other = (cache.peek('other')?.listValue ?? const []).map((e) => e.toStringValue());
       final otherResult = <String>[];
 
       other.forEach((element) {
@@ -1776,32 +1571,27 @@ You should create a new class to encapsulate the response.
     return result;
   }
 
-  void _generateExtra(
-      MethodElement m, List<Code> blocks, String localExtraVar) {
+  void _generateExtra(MethodElement m, List<Code> blocks, String localExtraVar) {
     final extras = <String, dynamic>{};
     _getExtrasAnnotation(m).forEach((extra) {
-      extras
-          .addAll((extra?.peek("data")?.mapValue ?? {}).map((k, v) => MapEntry(
-                    k?.toStringValue() ??
-                        (throw InvalidGenerationSourceError(
-                          'Invalid key for extra Map, only `String` keys are supported',
-                          element: m,
-                          todo: 'Make sure all keys are of string type',
-                        )),
-                    v?.toBoolValue() ??
-                        v?.toDoubleValue() ??
-                        v?.toIntValue() ??
-                        v?.toStringValue() ??
-                        v?.toListValue() ??
-                        v?.toMapValue() ??
-                        v?.toSetValue() ??
-                        v?.toSymbolValue() ??
-                        (v?.toTypeValue() ??
-                            (v != null
-                                ? Code(revivedLiteral(v))
-                                : Code('null'))),
-                  )) ??
-              {});
+      extras.addAll((extra?.peek("data")?.mapValue ?? {}).map((k, v) => MapEntry(
+                k?.toStringValue() ??
+                    (throw InvalidGenerationSourceError(
+                      'Invalid key for extra Map, only `String` keys are supported',
+                      element: m,
+                      todo: 'Make sure all keys are of string type',
+                    )),
+                v?.toBoolValue() ??
+                    v?.toDoubleValue() ??
+                    v?.toIntValue() ??
+                    v?.toStringValue() ??
+                    v?.toListValue() ??
+                    v?.toMapValue() ??
+                    v?.toSetValue() ??
+                    v?.toSymbolValue() ??
+                    (v?.toTypeValue() ?? (v != null ? Code(revivedLiteral(v)) : Code('null'))),
+              )) ??
+          {});
     });
 
     final extraInParam = _getAnnotations(m, dioxide.Extra);
@@ -1836,15 +1626,13 @@ You should create a new class to encapsulate the response.
       case dioxide.Parser.MapSerializable:
         return false;
       case dioxide.Parser.DartSingleMapper:
-        return !ele.functions.any((element) =>
-            element.name == 'dioxideDeserialize' &&
-            element.parameters.length == 1);
+        return !ele.functions.any((element) => element.name == 'dioxideDeserialize' && element.parameters.length == 1);
     }
   }
 }
 
-Builder generatorFactoryBuilder(BuilderOptions options) => SharedPartBuilder(
-    [DioxideGenerator(DioxideOptions.fromOptions(options))], "dioxide");
+Builder generatorFactoryBuilder(BuilderOptions options) =>
+    SharedPartBuilder([DioxideGenerator(DioxideOptions.fromOptions(options))], "dioxide");
 
 /// Returns `$revived($args $kwargs)`, this won't have ending semi-colon (`;`).
 /// [object] must not be null.
@@ -1868,8 +1656,8 @@ String revivedLiteral(
     revived = object.revive();
   }
   if (revived == null) {
-    throw ArgumentError.value(object, 'object',
-        'Only `Revivable`, `DartObject`, `ConstantReader` are supported values');
+    throw ArgumentError.value(
+        object, 'object', 'Only `Revivable`, `DartObject`, `ConstantReader` are supported values');
   }
 
   String instantiation = '';
@@ -1878,8 +1666,7 @@ String revivedLiteral(
   /// If this is a class instantiation then `location[1]` will be populated
   /// with the class name
   if (location.length > 1) {
-    instantiation = location[1] +
-        (revived.accessor.isNotEmpty ? '.${revived.accessor}' : '');
+    instantiation = location[1] + (revived.accessor.isNotEmpty ? '.${revived.accessor}' : '');
   } else {
     /// Getters, Setters, Methods can't be declared as constants so this
     /// literal must either be a top-level constant or a static constant and
@@ -1918,9 +1705,8 @@ String revivedLiteral(
     }
 
     if (constant.isMap) {
-      return literalMap(Map.fromIterables(
-          constant.mapValue.keys.map(objectToSpec),
-          constant.mapValue.values.map(objectToSpec)));
+      return literalMap(
+          Map.fromIterables(constant.mapValue.keys.map(objectToSpec), constant.mapValue.values.map(objectToSpec)));
       // return literal(constant.mapValue);
     }
 
@@ -1943,8 +1729,7 @@ String revivedLiteral(
 
     /// Perhaps an object instantiation?
     /// In that case, try initializing it and remove `const` to reduce noise
-    final revived = revivedLiteral(constant.revive(), dartEmitter: dartEmitter)
-        .replaceFirst('const ', '');
+    final revived = revivedLiteral(constant.revive(), dartEmitter: dartEmitter).replaceFirst('const ', '');
     return Code(revived);
   }
 
@@ -1992,24 +1777,19 @@ extension DartTypeExt on DartType {
 extension ReferenceExt on Reference {
   Reference asNoNull() => refer('${this.symbol}!');
 
-  Reference asNoNullIf({required bool returnNullable}) =>
-      returnNullable ? this : asNoNull();
+  Reference asNoNullIf({required bool returnNullable}) => returnNullable ? this : asNoNull();
 
   Expression propertyIf({
     required bool thisNullable,
     required String name,
   }) =>
-      thisNullable
-          ? nullSafeProperty(name)
-          : asNoNull().property(name);
+      thisNullable ? nullSafeProperty(name) : asNoNull().property(name);
 
   Expression conditionalIsNullIf({
     required bool thisNullable,
     required Expression whenFalse,
   }) =>
-      thisNullable
-          ? equalTo(literalNull).conditional(literalNull, whenFalse)
-          : whenFalse;
+      thisNullable ? equalTo(literalNull).conditional(literalNull, whenFalse) : whenFalse;
 }
 
 extension IterableExtension<T> on Iterable<T> {
