@@ -1,6 +1,6 @@
 name: dioxide_generator
 description: dioxide is a dio client generator.
-version: 0.1.1+1
+version: 0.1.1+2
 homepage: https://github.com/joutvhu/dioxide
 repository: https://github.com/joutvhu/dioxide/tree/main/dioxide_generator
 

@@ -340,7 +340,7 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> with Time
     String? definePath = method.peek("path")?.stringValue;
     paths.forEach((k, v) {
       final value = v.peek("value")?.stringValue ?? k.displayName;
-      definePath = definePath?.replaceFirst("{$value}", "\${${k.displayName}}");
+      definePath = definePath?.replaceFirst("{$value}", "\${${k.displayName}${k.type.element?.kind == ElementKind.ENUM ? '.name' : ''}}");
     });
     return literal(definePath);
   }
@@ -451,7 +451,13 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> with Time
       }
     } else {
       final innerReturnType = _getResponseInnerType(returnType);
-      if (_typeChecker(List).isExactlyType(returnType) || _typeChecker(BuiltList).isExactlyType(returnType)) {
+      if (_typeChecker(Response).isExactlyType(returnType)) {
+        blocks.add(
+          refer("await $_dioVar.fetch${innerReturnType != null ? '<${_displayString(innerReturnType)}>' : ''}")
+              .call([options]).assignFinal(_resultVar).statement,
+        );
+        blocks.add(Code("final value = $_resultVar;"));
+      } else if (_typeChecker(List).isExactlyType(returnType) || _typeChecker(BuiltList).isExactlyType(returnType)) {
         if (_isBasicType(innerReturnType)) {
           blocks.add(
             refer("await $_dioVar.fetch<List<dynamic>>").call([options]).assignFinal(_resultVar).statement,
@@ -718,7 +724,7 @@ You should create a new class to encapsulate the response.
       $returnAsyncWrapper httpResponse;
       """));
       } else {
-        blocks.add(Code("$returnAsyncWrapper value;"));
+        blocks.add(Code("$returnAsyncWrapper value as ${_displayString(returnType)};"));
       }
     }
 
