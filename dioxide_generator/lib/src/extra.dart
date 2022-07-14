@@ -51,9 +51,9 @@ Iterable<ConstantReader> _getExtrasAnnotation(MethodElement method) {
 /// [object] must not be null.
 /// [object] is assumed to be a constant.
 String revivedLiteral(
-    Object object, {
-      DartEmitter? dartEmitter,
-    }) {
+  Object object, {
+  DartEmitter? dartEmitter,
+}) {
   dartEmitter ??= DartEmitter();
 
   ArgumentError.checkNotNull(object, 'object');
@@ -160,4 +160,3 @@ String revivedLiteral(
 
   return '$instantiation($args $kwargs)';
 }
-

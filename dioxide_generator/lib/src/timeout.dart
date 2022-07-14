@@ -5,58 +5,85 @@ import 'package:source_gen/source_gen.dart';
 
 import 'base.dart';
 
-const _sendTimeout = 'sendTimeout';
-const _connectTimeout = 'connectTimeout';
-const _receiveTimeout = 'receiveTimeout';
-const _sendTimeoutVar = '_sendTimeout';
-const _connectTimeoutVar = '_connectTimeout';
-const _receiveTimeoutVar = '_receiveTimeout';
+const _sendTimeoutVar = 'sendTimeout';
+const _connectTimeoutVar = 'connectTimeout';
+const _receiveTimeoutVar = 'receiveTimeout';
 
-Field _buildSendTimeoutFiled(int? e) => Field((m) {
+Parameter _buildSendTimeoutParameter() => Parameter((p) {
+      p
+        ..named = true
+        ..name = _sendTimeoutVar
+        ..toThis = true;
+    });
+
+Parameter _buildConnectTimeoutParameter() => Parameter((p) {
+      p
+        ..named = true
+        ..name = _connectTimeoutVar
+        ..toThis = true;
+    });
+
+Parameter _buildReceiveTimeoutParameter() => Parameter((p) {
+      p
+        ..named = true
+        ..name = _receiveTimeoutVar
+        ..toThis = true;
+    });
+
+Iterable<Parameter> buildTimeoutParameters() {
+  return [
+    _buildSendTimeoutParameter(),
+    _buildConnectTimeoutParameter(),
+    _buildReceiveTimeoutParameter(),
+  ];
+}
+
+Field _buildSendTimeoutField() => Field((m) {
       m
         ..name = _sendTimeoutVar
         ..type = refer("int?")
         ..modifier = FieldModifier.var$;
-      if (e != null) {
-        m.assignment = literal(e).code;
-      }
     });
 
-Field _buildConnectTimeoutFiled(int? e) => Field((m) {
+Field _buildConnectTimeoutField() => Field((m) {
       m
         ..name = _connectTimeoutVar
         ..type = refer("int?")
         ..modifier = FieldModifier.var$;
-      if (e != null) {
-        m.assignment = literal(e).code;
-      }
     });
 
-Field _buildReceiveTimeoutFiled(int? e) => Field((m) {
+Field _buildReceiveTimeoutField() => Field((m) {
       m
         ..name = _receiveTimeoutVar
         ..type = refer("int?")
         ..modifier = FieldModifier.var$;
-      if (e != null) {
-        m.assignment = literal(e).code;
-      }
     });
 
-List<Field> buildTimeoutFields(Element element) {
+Iterable<Field> buildTimeoutFields() {
+  return [
+    _buildSendTimeoutField(),
+    _buildConnectTimeoutField(),
+    _buildReceiveTimeoutField(),
+  ];
+}
+
+Iterable<Code> buildTimeoutDefaultValue(Element element) {
   final value = _getTimeoutValue(element);
   return [
-    _buildSendTimeoutFiled(value[_sendTimeout]),
-    _buildConnectTimeoutFiled(value[_connectTimeout]),
-    _buildReceiveTimeoutFiled(value[_receiveTimeout]),
+    if (value[_sendTimeoutVar] != null) Code('$_sendTimeoutVar ??= ${literal(value[_sendTimeoutVar])};'),
+    if (value[_connectTimeoutVar] != null) Code('$_connectTimeoutVar ??= ${literal(value[_connectTimeoutVar])};'),
+    if (value[_receiveTimeoutVar] != null) Code('$_receiveTimeoutVar ??= ${literal(value[_receiveTimeoutVar])};'),
   ];
 }
 
 Map<String, Expression> buildTimeoutOptions(MethodElement element) {
   final value = _getTimeoutValue(element);
   return {
-    _sendTimeout: value[_sendTimeout] != null ? literal(value[_sendTimeout]) : refer(_sendTimeoutVar),
-    _connectTimeout: value[_connectTimeout] != null ? literal(value[_connectTimeout]) : refer(_connectTimeoutVar),
-    _receiveTimeout: value[_receiveTimeout] != null ? literal(value[_receiveTimeout]) : refer(_receiveTimeoutVar),
+    _sendTimeoutVar: value[_sendTimeoutVar] != null ? literal(value[_sendTimeoutVar]) : refer(_sendTimeoutVar),
+    _connectTimeoutVar:
+        value[_connectTimeoutVar] != null ? literal(value[_connectTimeoutVar]) : refer(_connectTimeoutVar),
+    _receiveTimeoutVar:
+        value[_receiveTimeoutVar] != null ? literal(value[_receiveTimeoutVar]) : refer(_receiveTimeoutVar),
   };
 }
 
@@ -64,9 +91,9 @@ Map<String, int?> _getTimeoutValue(Element element) {
   final timeouts = _getTimeoutAnnotation(element);
   final Map<String, int?> expression = {};
   if (timeouts != null) {
-    expression[_sendTimeout] = timeouts.peek(_sendTimeout)?.intValue;
-    expression[_connectTimeout] = timeouts.peek(_connectTimeout)?.intValue;
-    expression[_receiveTimeout] = timeouts.peek(_receiveTimeout)?.intValue;
+    expression[_sendTimeoutVar] = timeouts.peek(_sendTimeoutVar)?.intValue;
+    expression[_connectTimeoutVar] = timeouts.peek(_connectTimeoutVar)?.intValue;
+    expression[_receiveTimeoutVar] = timeouts.peek(_receiveTimeoutVar)?.intValue;
   }
   return expression;
 }

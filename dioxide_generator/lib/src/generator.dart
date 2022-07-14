@@ -12,6 +12,7 @@ import 'package:dioxide/dioxide.dart' as dioxide;
 import 'package:source_gen/source_gen.dart';
 
 import 'base.dart';
+import 'base_url.dart';
 import 'content_type.dart';
 import 'extra.dart';
 import 'header.dart';
@@ -22,7 +23,6 @@ import 'timeout.dart';
 const _analyzerIgnores = '// ignore_for_file: unnecessary_brace_in_string_interps';
 
 class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
-  static const _baseUrlVar = 'baseUrl';
   static const _queryParamsVar = 'queryParameters';
   static const _localHeadersVar = '_headers';
   static const _headersVar = 'headers';
@@ -68,26 +68,26 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
     final deserializerParser = dioxide.Parser.values.firstWhereOrNull((e) => e.toString() == deserializerEnumString);
     clientAnnotation = dioxide.RestApi(
       autoCastResponse: (annotation?.peek('autoCastResponse')?.boolValue),
-      baseUrl: (annotation?.peek(_baseUrlVar)?.stringValue ?? ''),
+      baseUrl: (annotation?.peek('baseUrl')?.stringValue ?? ''),
       serializer: (serializerParser ?? dioxide.Parser.MapSerializable),
       deserializer: (deserializerParser ?? dioxide.Parser.MapSerializable),
     );
-    final baseUrl = clientAnnotation.baseUrl;
     final annotClassConsts = element.constructors.where((c) => !c.isFactory && !c.isDefaultConstructor);
     final classBuilder = Class((c) {
       c
         ..name = '_$className'
         ..types.addAll(element.typeParameters.map((e) => refer(e.name)))
-        ..fields.addAll([_buildDioFiled(), _buildBaseUrlFiled(baseUrl)])
-        ..fields.addAll(buildTimeoutFields(element))
+        ..fields.add(_buildDioFiled())
+        ..fields.add(buildBaseUrlFiled())
+        ..fields.addAll(buildTimeoutFields())
         ..constructors.addAll(
           annotClassConsts.map(
-            (e) => _generateConstructor(baseUrl, superClassConst: e),
+            (e) => _generateConstructor(element, superClassConst: e),
           ),
         )
         ..methods.addAll(parseMethods(element));
       if (annotClassConsts.isEmpty) {
-        c.constructors.add(_generateConstructor(baseUrl));
+        c.constructors.add(_generateConstructor(element));
         c.implements.add(refer(_generateTypeParameterizedName(element)));
       } else {
         c.extend = Reference(_generateTypeParameterizedName(element));
@@ -113,25 +113,16 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
     ..type = refer('Dio')
     ..modifier = FieldModifier.final$);
 
-  Field _buildBaseUrlFiled(String? url) => Field((m) {
-        m
-          ..name = _baseUrlVar
-          ..type = refer('String?')
-          ..modifier = FieldModifier.var$;
-      });
-
   Constructor _generateConstructor(
-    String? url, {
+    ClassElement element, {
     ConstructorElement? superClassConst,
   }) =>
       Constructor((c) {
         c.requiredParameters.add(Parameter((p) => p
           ..name = _dioVar
           ..toThis = true));
-        c.optionalParameters.add(Parameter((p) => p
-          ..named = true
-          ..name = _baseUrlVar
-          ..toThis = true));
+        c.optionalParameters.add(buildBaseUrlParameter());
+        c.optionalParameters.addAll(buildTimeoutParameters());
         if (superClassConst != null) {
           var superConstName = 'super';
           if (superClassConst.name.isNotEmpty) {
@@ -154,11 +145,11 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
           final paramList = constParams.map((e) => (e.isNamed ? '${e.name}: ' : '') + '${e.name}');
           c.initializers.add(Code('$superConstName(' + paramList.join(',') + ')'));
         }
-        final block = [
-          if (url != null && url.isNotEmpty) Code('${_baseUrlVar} ??= ${literal(url)};'),
-        ];
+        final Iterable<Code> block = []
+          ..addAll(buildBaseUrlDefaultValue(clientAnnotation))
+          ..addAll(buildTimeoutDefaultValue(element));
 
-        if (!block.isEmpty) {
+        if (block.isNotEmpty) {
           c.body = Block.of(block);
         }
       });
@@ -218,7 +209,9 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
       extraOptions[_contentType] = literal(contentType.peek('mime')?.stringValue);
     }
 
-    extraOptions[_baseUrlVar] = refer(_baseUrlVar);
+    extraOptions.addAll(buildBaseUrlOptions());
+
+    extraOptions.addAll(buildTimeoutOptions(m));
 
     final responseType = getResponseTypeAnnotation(m);
     if (responseType != null) {
@@ -712,7 +705,7 @@ You should create a new class to encapsulate the response.
       final path = args.remove(_path)!;
       final dataVar = args.remove(_dataVar)!;
       final queryParams = args.remove(_queryParamsVar)!;
-      final baseUrl = args.remove(_baseUrlVar)!;
+      final baseUrl = args.remove(getBaseUrlVar())!;
       final cancelToken = args.remove(_cancelToken);
       final sendProgress = args.remove(_onSendProgress);
       final receiveProgress = args.remove(_onReceiveProgress);
@@ -741,7 +734,7 @@ You should create a new class to encapsulate the response.
             .call(
                 [],
                 {
-                  _baseUrlVar: baseUrl.ifNullThen(refer(_dioVar).property('options').property('baseUrl')),
+                  getBaseUrlVar(): baseUrl.ifNullThen(refer(_dioVar).property('options').property('baseUrl')),
                 }..addAll(buildTimeoutOptions(m)))
       ], {}, [
         type
@@ -764,8 +757,9 @@ You should create a new class to encapsulate the response.
               Map.from(extraOptions)
                 ..[_queryParamsVar] = namedArguments[_queryParamsVar]!
                 ..[_path] = namedArguments[_path]!
-                ..[_baseUrlVar] =
-                    extraOptions.remove(_baseUrlVar)!.ifNullThen(refer(_dioVar).property('options').property('baseUrl'))
+                ..[getBaseUrlVar()] = extraOptions
+                    .remove(getBaseUrlVar())!
+                    .ifNullThen(refer(_dioVar).property('options').property('baseUrl'))
                 ..addAll(buildTimeoutOptions(m)))
           .cascade('data')
           .assign(namedArguments[_dataVar]!);
