@@ -3,8 +3,6 @@ import 'package:dioxide/dioxide.dart' as dioxide;
 
 const _baseUrlVar = 'baseUrl';
 
-String getBaseUrlVar() => _baseUrlVar;
-
 Parameter buildBaseUrlParameter() => Parameter((p) {
       p
         ..named = true
@@ -28,8 +26,13 @@ Iterable<Code> buildBaseUrlDefaultValue(dioxide.RestApi restApi) {
   }
 }
 
-Map<String, Expression> buildBaseUrlOptions() {
+Map<String, Expression> buildBaseUrlOptions({
+  Map<String, Expression>? extraOptions,
+  Reference? dioRef,
+}) {
   return {
-    _baseUrlVar: refer(_baseUrlVar),
+    _baseUrlVar: extraOptions != null && dioRef != null
+        ? extraOptions.remove(_baseUrlVar)!.ifNullThen(dioRef.property('options').property('baseUrl'))
+        : refer(_baseUrlVar),
   };
 }

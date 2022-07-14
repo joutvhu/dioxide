@@ -211,8 +211,6 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
 
     extraOptions.addAll(buildBaseUrlOptions());
 
-    extraOptions.addAll(buildTimeoutOptions(m));
-
     final responseType = getResponseTypeAnnotation(m);
     if (responseType != null) {
       final v = responseType.peek('responseType')?.objectValue;
@@ -705,7 +703,6 @@ You should create a new class to encapsulate the response.
       final path = args.remove(_path)!;
       final dataVar = args.remove(_dataVar)!;
       final queryParams = args.remove(_queryParamsVar)!;
-      final baseUrl = args.remove(getBaseUrlVar())!;
       final cancelToken = args.remove(_cancelToken);
       final sendProgress = args.remove(_onSendProgress);
       final receiveProgress = args.remove(_onReceiveProgress);
@@ -733,9 +730,9 @@ You should create a new class to encapsulate the response.
             .property('copyWith')
             .call(
                 [],
-                {
-                  getBaseUrlVar(): baseUrl.ifNullThen(refer(_dioVar).property('options').property('baseUrl')),
-                }..addAll(buildTimeoutOptions(m)))
+                {}
+                  ..addAll(buildBaseUrlOptions(extraOptions: args, dioRef: refer(_dioVar)))
+                  ..addAll(buildTimeoutOptions(m)))
       ], {}, [
         type
       ]);
@@ -757,9 +754,7 @@ You should create a new class to encapsulate the response.
               Map.from(extraOptions)
                 ..[_queryParamsVar] = namedArguments[_queryParamsVar]!
                 ..[_path] = namedArguments[_path]!
-                ..[getBaseUrlVar()] = extraOptions
-                    .remove(getBaseUrlVar())!
-                    .ifNullThen(refer(_dioVar).property('options').property('baseUrl'))
+                ..addAll(buildBaseUrlOptions(extraOptions: extraOptions, dioRef: refer(_dioVar)))
                 ..addAll(buildTimeoutOptions(m)))
           .cascade('data')
           .assign(namedArguments[_dataVar]!);
