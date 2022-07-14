@@ -130,7 +130,7 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
             c.name = superClassConst.name;
           }
           final constParams = superClassConst.parameters;
-          constParams.forEach((element) {
+          for (var element in constParams) {
             if (!element.isOptional || element.isPrivate) {
               c.requiredParameters.add(Parameter((p) => p
                 ..type = refer(displayString(element.type))
@@ -141,8 +141,8 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
                 ..type = refer(displayString(element.type))
                 ..name = element.name));
             }
-          });
-          final paramList = constParams.map((e) => (e.isNamed ? '${e.name}: ' : '') + '${e.name}');
+          }
+          final paramList = constParams.map((e) => (e.isNamed ? '${e.name}: ' : '') + e.name);
           c.initializers.add(Code('$superConstName(' + paramList.join(',') + ')'));
         }
         final Iterable<Code> block = []
@@ -187,7 +187,7 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
             .statement);
 
     if (headers.isNotEmpty) {
-      blocks.add(Code('${_localHeadersVar}.removeWhere((k, v) => v == null);'));
+      blocks.add(Code('$_localHeadersVar.removeWhere((k, v) => v == null);'));
     }
 
     _generateRequestBody(blocks, _localDataVar, m);
@@ -238,7 +238,7 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
     final receiveProgress = getAnnotation(m, dioxide.ReceiveProgress);
     if (receiveProgress != null) namedArguments[_onReceiveProgress] = refer(receiveProgress.item1.displayName);
 
-    final wrapperedReturnType = getResponseType(m.returnType);
+    final wrappedReturnType = getResponseType(m.returnType);
     final autoCastResponse = (globalOptions.autoCastResponse ?? (clientAnnotation.autoCastResponse ?? true));
 
     final options = _parseOptions(m, namedArguments, blocks, extraOptions);
@@ -251,7 +251,7 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
       return Block.of(blocks);
     }
 
-    if (wrapperedReturnType == null || 'void' == wrapperedReturnType.toString()) {
+    if (wrappedReturnType == null || 'void' == wrappedReturnType.toString()) {
       blocks.add(
         refer('await $_dioVar.fetch').call([options], {}, [refer('void')]).statement,
       );
@@ -259,10 +259,10 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
       return Block.of(blocks);
     }
 
-    final bool isWrappered = typeChecker(dioxide.HttpResponse).isExactlyType(wrapperedReturnType);
-    final returnType = isWrappered ? getResponseType(wrapperedReturnType) : wrapperedReturnType;
+    final bool isWrapped = typeChecker(dioxide.HttpResponse).isExactlyType(wrappedReturnType);
+    final returnType = isWrapped ? getResponseType(wrappedReturnType) : wrappedReturnType;
     if (returnType == null || 'void' == returnType.toString()) {
-      if (isWrappered) {
+      if (isWrapped) {
         blocks.add(
           refer('final $_resultVar = await $_dioVar.fetch').call([options], {}, [refer('void')]).statement,
         );
@@ -293,7 +293,7 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
           );
           blocks.add(refer('$_resultVar.data')
               .propertyIf(thisNullable: returnType.isNullable, name: 'cast')
-              .call([], {}, [refer('${displayString(innerReturnType)}')])
+              .call([], {}, [refer(displayString(innerReturnType))])
               .assignFinal('value')
               .statement);
         } else {
@@ -478,8 +478,8 @@ You should create a new class to encapsulate the response.
             blocks.add(refer('$_resultVar.data')
                 .propertyIf(thisNullable: returnType.isNullable, name: 'cast')
                 .call([], {}, [
-                  refer('${displayString(firstType)}'),
-                  refer('${displayString(secondType)}'),
+                  refer(displayString(firstType)),
+                  refer(displayString(secondType)),
                 ])
                 .assignFinal('value')
                 .statement);
@@ -519,7 +519,7 @@ You should create a new class to encapsulate the response.
 
               var typeArgs = returnType is ParameterizedType ? returnType.typeArguments : [];
 
-              if (typeArgs.length > 0 && genericArgumentFactories) {
+              if (typeArgs.isNotEmpty && genericArgumentFactories) {
                 mapperCode = refer(
                     '${displayString(returnType)}.fromJson($_resultVar.data!,${_getInnerJsonSerializableMapperFn(returnType)})');
               } else {
@@ -547,7 +547,7 @@ You should create a new class to encapsulate the response.
               .statement);
         }
       }
-      if (isWrappered) {
+      if (isWrapped) {
         blocks.add(Code('''
       final httpResponse = HttpResponse(value, $_resultVar);
       $returnAsyncWrapper httpResponse;
@@ -574,7 +574,9 @@ You should create a new class to encapsulate the response.
         final obj = (annotation.peek('genericArgumentFactories'));
         // ignore: invalid_null_aware_operator
         genericArgumentFactories = obj?.boolValue ?? false;
-      } catch (e) {}
+      } catch (e) {
+        // do nothing
+      }
     }
 
     return genericArgumentFactories;
@@ -582,18 +584,18 @@ You should create a new class to encapsulate the response.
 
   String _getInnerJsonSerializableMapperFn(DartType dartType) {
     var typeArgs = dartType is ParameterizedType ? dartType.typeArguments : [];
-    if (typeArgs.length > 0) {
+    if (typeArgs.isNotEmpty) {
       if (typeChecker(List).isExactlyType(dartType) || typeChecker(BuiltList).isExactlyType(dartType)) {
         var genericType = getResponseType(dartType);
         var typeArgs = genericType is ParameterizedType ? genericType.typeArguments : [];
-        var mapperVal;
+        String mapperVal;
 
-        var genericTypeString = '${displayString(genericType)}';
+        var genericTypeString = displayString(genericType);
 
-        if (typeArgs.length > 0 && isGenericArgumentFactories(genericType) && genericType != null) {
+        if (typeArgs.isNotEmpty && isGenericArgumentFactories(genericType) && genericType != null) {
           mapperVal = '''
     (json)=> (json as List<dynamic>)
-            .map<${genericTypeString}>((i) => ${genericTypeString}.fromJson(
+            .map<$genericTypeString>((i) => $genericTypeString.fromJson(
                   i as Map<String,dynamic>,${_getInnerJsonSerializableMapperFn(genericType)}
                 ))
             .toList(),
@@ -602,15 +604,15 @@ You should create a new class to encapsulate the response.
           if (isBasicType(genericType)) {
             mapperVal = '''
     (json)=>(json as List<dynamic>)
-            .map<${genericTypeString}>((i) =>
-                  i as ${genericTypeString}
+            .map<$genericTypeString>((i) =>
+                  i as $genericTypeString
                 )
             .toList(),
     ''';
           } else {
             mapperVal = '''
     (json)=>(json as List<dynamic>)
-            .map<${genericTypeString}>((i) =>
+            .map<$genericTypeString>((i) =>
             ${genericTypeString == 'dynamic' ? ' i as Map<String,dynamic>' : genericTypeString + '.fromJson(  i as Map<String,dynamic> )  '}
     )
             .toList(),
@@ -623,18 +625,21 @@ You should create a new class to encapsulate the response.
         for (DartType arg in typeArgs) {
           // print(arg);
           var typeArgs = arg is ParameterizedType ? arg.typeArguments : [];
-          if (typeArgs.length > 0) if (typeChecker(List).isExactlyType(arg) ||
-              typeChecker(BuiltList).isExactlyType(arg)) {
-            mappedVal += '${_getInnerJsonSerializableMapperFn(arg)}';
+          if (typeArgs.isNotEmpty) {
+            if (typeChecker(List).isExactlyType(arg) ||
+                typeChecker(BuiltList).isExactlyType(arg)) {
+              mappedVal += _getInnerJsonSerializableMapperFn(arg);
+            } else {
+              if (isGenericArgumentFactories(arg)) {
+                mappedVal +=
+                '(json)=>${displayString(arg)}.fromJson(json as Map<String,dynamic>,${_getInnerJsonSerializableMapperFn(
+                    arg)}),';
+              } else {
+                mappedVal += '(json)=>${displayString(arg)}.fromJson(json as Map<String,dynamic>),';
+              }
+            }
           } else {
-            if (isGenericArgumentFactories(arg))
-              mappedVal +=
-                  '(json)=>${displayString(arg)}.fromJson(json as Map<String,dynamic>,${_getInnerJsonSerializableMapperFn(arg)}),';
-            else
-              mappedVal += '(json)=>${displayString(arg)}.fromJson(json as Map<String,dynamic>),';
-          }
-          else {
-            mappedVal += '${_getInnerJsonSerializableMapperFn(arg)}';
+            mappedVal += _getInnerJsonSerializableMapperFn(arg);
           }
         }
         return mappedVal;
@@ -650,13 +655,13 @@ You should create a new class to encapsulate the response.
 
   String _getInnerJsonDeSerializableMapperFn(DartType dartType) {
     var typeArgs = dartType is ParameterizedType ? dartType.typeArguments : [];
-    if (typeArgs.length > 0) {
+    if (typeArgs.isNotEmpty) {
       if (typeChecker(List).isExactlyType(dartType) || typeChecker(BuiltList).isExactlyType(dartType)) {
         var genericType = getResponseType(dartType);
         var typeArgs = genericType is ParameterizedType ? genericType.typeArguments : [];
-        var mapperVal;
+        String mapperVal;
 
-        if (typeArgs.length > 0 && isGenericArgumentFactories(genericType) && genericType != null) {
+        if (typeArgs.isNotEmpty && isGenericArgumentFactories(genericType) && genericType != null) {
           mapperVal = '(value) => value.map((value) => ${_getInnerJsonDeSerializableMapperFn(genericType)}).toList()';
         } else {
           if (isBasicType(genericType)) {
@@ -670,18 +675,19 @@ You should create a new class to encapsulate the response.
         var mappedVal = '';
         for (DartType arg in typeArgs) {
           var typeArgs = arg is ParameterizedType ? arg.typeArguments : [];
-          if (typeArgs.length > 0) if (typeChecker(List).isExactlyType(arg) ||
-              typeChecker(BuiltList).isExactlyType(arg)) {
-            mappedVal = '${_getInnerJsonDeSerializableMapperFn(arg)}';
-          } else {
-            if (isGenericArgumentFactories(arg))
-              mappedVal = '(value) => value.toJson(${_getInnerJsonDeSerializableMapperFn(arg)})';
-            else {
-              mappedVal = '(value) => value';
+          if (typeArgs.isNotEmpty) {
+            if (typeChecker(List).isExactlyType(arg) ||
+                typeChecker(BuiltList).isExactlyType(arg)) {
+              mappedVal = _getInnerJsonDeSerializableMapperFn(arg);
+            } else {
+              if (isGenericArgumentFactories(arg)) {
+                mappedVal = '(value) => value.toJson(${_getInnerJsonDeSerializableMapperFn(arg)})';
+              } else {
+                mappedVal = '(value) => value';
+              }
             }
-          }
-          else {
-            mappedVal = '${_getInnerJsonDeSerializableMapperFn(arg)}';
+          } else {
+            mappedVal = _getInnerJsonDeSerializableMapperFn(arg);
           }
         }
         return mappedVal;
@@ -971,7 +977,7 @@ You should create a new class to encapsulate the response.
     final _bodyName = annotation?.item1;
     if (_bodyName != null) {
       final nullToAbsent = annotation!.item2.peek('nullToAbsent')?.boolValue ?? false;
-      final toFormData = annotation!.item2.peek('toFormData')?.boolValue ?? false;
+      final toFormData = annotation.item2.peek('toFormData')?.boolValue ?? false;
       final bodyTypeElement = _bodyName.type.element;
       final _targetVar = toFormData ? _tempDataVar : _dataVar;
       if (TypeChecker.fromRuntime(Map).isAssignableFromType(_bodyName.type)) {
@@ -985,7 +991,7 @@ You should create a new class to encapsulate the response.
           blocks.add(Code('$_targetVar.removeWhere((k, v) => v == null);'));
         }
         if (toFormData) {
-          blocks.add(refer('FormData.fromMap(${_targetVar})').assignFinal(_dataVar).statement);
+          blocks.add(refer('FormData.fromMap($_targetVar)').assignFinal(_dataVar).statement);
         }
       } else if (bodyTypeElement != null &&
           ((typeChecker(List).isExactly(bodyTypeElement) || typeChecker(BuiltList).isExactly(bodyTypeElement)) &&
@@ -1012,7 +1018,7 @@ You should create a new class to encapsulate the response.
             break;
         }
         if (toFormData) {
-          blocks.add(refer('''FormData().addList('${_bodyName}', ${_targetVar})''').assignFinal(_dataVar).statement);
+          blocks.add(refer('''FormData().addList('$_bodyName', $_targetVar)''').assignFinal(_dataVar).statement);
         }
       } else if (bodyTypeElement != null && typeChecker(File).isExactly(bodyTypeElement)) {
         blocks.add(refer('Stream')
@@ -1037,7 +1043,7 @@ You should create a new class to encapsulate the response.
                   .call([refer('${_bodyName.displayName}?.toMap() ?? <String,dynamic>{}')]).statement);
             }
             if (toFormData) {
-              blocks.add(refer('FormData.fromMap(${_targetVar})').assignFinal(_dataVar).statement);
+              blocks.add(refer('FormData.fromMap($_targetVar)').assignFinal(_dataVar).statement);
             }
           }
         } else {
@@ -1105,12 +1111,12 @@ You should create a new class to encapsulate the response.
               blocks.add(Code('$_targetVar.removeWhere((k, v) => v == null);'));
             }
             if (toFormData) {
-              blocks.add(refer('FormData.fromMap(${_targetVar})').assignFinal(_dataVar).statement);
+              blocks.add(refer('FormData.fromMap($_targetVar)').assignFinal(_dataVar).statement);
             }
           }
         }
       } else {
-        /// @Body annotations with no type are assinged as is
+        /// @Body annotations with no type are assigned as is
         blocks.add(refer(_bodyName.displayName).assignFinal(_dataVar).statement);
       }
 
@@ -1174,15 +1180,15 @@ You should create a new class to encapsulate the response.
                   .call([literal(contentType)])
           });
 
-          final optinalFile =
+          final optionalFile =
               m.parameters.firstWhereOrNull((pp) => pp.displayName == p.displayName)?.isOptional ?? false;
 
           final returnCode = refer(_dataVar).property('files').property('add').call([
             refer('MapEntry').newInstance([literal(fieldName), uploadFileInfo])
           ]).statement;
-          if (optinalFile) {
-            final condication = refer(p.displayName).notEqualTo(literalNull).code;
-            blocks.addAll([Code('if('), condication, Code(') {'), returnCode, Code('}')]);
+          if (optionalFile) {
+            final condition = refer(p.displayName).notEqualTo(literalNull).code;
+            blocks.addAll([Code('if('), condition, Code(') {'), returnCode, Code('}')]);
           } else {
             blocks.add(returnCode);
           }
@@ -1194,11 +1200,11 @@ You should create a new class to encapsulate the response.
           final returnCode = refer(_dataVar).property('files').property('add').call([
             refer('''
                   MapEntry(
-                '${fieldName}',
+                '$fieldName',
                 MultipartFile.fromBytes(${p.displayName},
 
-                filename:${literal(fileName ?? null)},
-                    ${conType}
+                filename:${literal(fileName)},
+                    $conType
                     ))
                   ''')
           ]).statement;
@@ -1217,10 +1223,10 @@ You should create a new class to encapsulate the response.
             blocks.add(refer(_dataVar).property('files').property('addAll').call([
               refer('''
                   ${p.displayName}.map((i) => MapEntry(
-                '${fieldName}',
+                '$fieldName',
                 MultipartFile.fromBytes(i,
-                    filename:${literal(fileName ?? null)},
-                    ${conType}
+                    filename:${literal(fileName)},
+                    $conType
                     )))
                   ''')
             ]).statement);
@@ -1234,7 +1240,7 @@ You should create a new class to encapsulate the response.
             var nullableInfix = (p.type.nullabilitySuffix == NullabilitySuffix.question) ? '?' : '';
             blocks.add(refer('''
             ${p.displayName}$nullableInfix.forEach((i){
-              ${_dataVar}.fields.add(MapEntry(${literal(fieldName)},${value}));
+              $_dataVar.fields.add(MapEntry(${literal(fieldName)},${value}));
             })
             ''').statement);
           } else if (innerType != null && typeChecker(File).isExactlyType(innerType)) {
@@ -1245,10 +1251,10 @@ You should create a new class to encapsulate the response.
             blocks.add(refer(_dataVar).property('files').property('addAll').call([
               refer('''
                   ${p.displayName}.map((i) => MapEntry(
-                '${fieldName}',
+                '$fieldName',
                 MultipartFile.fromFileSync(i.path,
                     filename: i.path.split(Platform.pathSeparator).last,
-                    ${conType}
+                    $conType
                     )))
                   ''')
             ]).statement);

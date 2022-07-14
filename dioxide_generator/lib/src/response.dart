@@ -18,8 +18,9 @@ List<DartType>? getResponseInnerTypes(DartType type) {
 
 DartType? getResponseInnerType(DartType type) {
   final generic = genericOf(type);
-  if (generic == null || typeChecker(Map).isExactlyType(type) || typeChecker(BuiltMap).isExactlyType(type))
+  if (generic == null || typeChecker(Map).isExactlyType(type) || typeChecker(BuiltMap).isExactlyType(type)) {
     return type;
+  }
 
   if (generic.isDynamic) return null;
 

@@ -21,11 +21,11 @@ Map<String, Expression> generateCache(MethodElement m) {
     final other = (cache.peek('other')?.listValue ?? const []).map((e) => e.toStringValue());
     final otherResult = <String>[];
 
-    other.forEach((element) {
+    for (var element in other) {
       if (element != null) {
         otherResult.add(element);
       }
-    });
+    }
 
     final values = <String>[
       maxAge != null ? 'max-age=$maxAge' : '',

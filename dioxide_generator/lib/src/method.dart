@@ -18,7 +18,7 @@ final _methodsAnnotations = const [
 ];
 
 Iterable<MethodElement> getMethodElements(ClassElement element) {
-  return (<MethodElement>[]..addAll(element.methods)..addAll(element.mixins.expand((i) => i.methods)))
+  return (<MethodElement>[...element.methods, ...element.mixins.expand((i) => i.methods)])
       .where((MethodElement m) {
     final methodAnnot = _getMethodAnnotation(m);
     return methodAnnot != null && m.isAbstract && (m.returnType.isDartAsyncFuture || m.returnType.isDartAsyncStream);

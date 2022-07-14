@@ -9,7 +9,7 @@ import 'base.dart';
 void generateExtra(MethodElement m, List<Code> blocks, String localExtraVar) {
   final extras = <String, dynamic>{};
   _getExtrasAnnotation(m).forEach((extra) {
-    extras.addAll((extra?.peek('data')?.mapValue ?? {}).map((k, v) => MapEntry(
+    extras.addAll((extra.peek('data')?.mapValue ?? {}).map((k, v) => MapEntry(
               k?.toStringValue() ??
                   (throw InvalidGenerationSourceError(
                     'Invalid key for extra Map, only `String` keys are supported',

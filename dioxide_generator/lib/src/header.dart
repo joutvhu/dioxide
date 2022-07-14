@@ -9,9 +9,8 @@ import 'cache.dart';
 Map<String, Expression> generateHeaders(MethodElement m) {
   final headers = <String, Expression>{};
   _getHeadersAnnotation(m).forEach((anno) {
-    headers.addAll((anno?.peek('value')?.mapValue ?? {})
-            .map((k, v) => MapEntry(k?.toStringValue() ?? 'null', literal(v?.toStringValue()))) ??
-        {});
+    headers.addAll((anno.peek('value')?.mapValue ?? {})
+            .map((k, v) => MapEntry(k?.toStringValue() ?? 'null', literal(v?.toStringValue()))));
   });
 
   final annosInParam = getAnnotations(m, dioxide.Header);
