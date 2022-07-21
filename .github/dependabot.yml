@@ -6,8 +6,21 @@
 version: 2
 updates:
   - package-ecosystem: "pub" # See documentation for possible values
-    directory: "/" # Location of package manifests
+    directory: "/dioxide" # Location of package manifests
     schedule:
       interval: "weekly"
     assignees:
       - "joutvhu"
+    labels:
+      - "dioxide"
+      - "dependencies"
+
+  - package-ecosystem: "pub" # See documentation for possible values
+    directory: "/dioxide_generator" # Location of package manifests
+    schedule:
+      interval: "weekly"
+    assignees:
+      - "joutvhu"
+    labels:
+      - "generator"
+      - "dependencies"
