@@ -8,11 +8,11 @@ Dioxide is a type conversion [dio](https://github.com/flutterchina/dio/) client 
 
 ```yaml
 dependencies:
-  dioxide: ^0.1.1
+  dioxide: ^lastVersion
 
 dev_dependencies:
   build_runner: ^2.2.0
-  dioxide_generator: ^0.1.1+3
+  dioxide_generator: ^lastVersion
 ```
 
 ### Define and Generate your API
