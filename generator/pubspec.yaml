@@ -1,6 +1,6 @@
 name: dioxide_generator
 description: dioxide is a dio client generator.
-version: 0.1.1+4
+version: 1.0.0
 homepage: https://github.com/joutvhu/dioxide
 repository: https://github.com/joutvhu/dioxide/tree/main/dioxide_generator
 
@@ -11,15 +11,15 @@ scripts:
   publish: dart pub publish
 
 dependencies:
-  dio: ^4.0.1
-  source_gen: ^1.0.1
-  built_collection: ^5.0.0
-  code_builder: ^4.0.0
+  dio: ^4.0.0
+  source_gen: ^1.2.0
+  built_collection: ^5.1.0
+  code_builder: ^4.4.0
   tuple: ^2.0.0
-  dioxide: ^0.1.1
-  analyzer: ">=3.0.0 <6.0.0"
-  dart_style: ^2.0.1
-  build: ^2.0.1
+  dioxide: ^0.1.2
+  analyzer: ">=4.6.0 <6.0.0"
+  dart_style: ^2.2.0
+  build: ^2.3.0
 
 dev_dependencies:
   lints: ">=1.0.0 <3.0.0"
