@@ -11,7 +11,7 @@ scripts:
   publish: dart pub publish
 
 dependencies:
-  dio: ^4.0.1
+  dio: ">=4.0.1 <6.0.0"
   meta: ^1.3.0
 
 dev_dependencies:
