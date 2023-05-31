@@ -1,0 +1,65 @@
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+name: Publish package to pub.dev
+
+on:
+  release:
+    types:
+      - created
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Get Current Release
+        id: current_release
+        uses: joutvhu/get-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Dart SDK
+        uses: dart-lang/setup-dart@v1
+
+      - name: Setup Credentials
+        uses: joutvhu/write-file@v1
+        with:
+          path: ~/.pub-cache/credentials.json
+          contents: ${{ secrets.PUB_CREDENTIALS }}
+          write_mode: overwrite
+
+      - name: Install dependencies for dioxide
+        if: ${{ endsWith(steps.current_release.outputs.tag_name, '_dioxide') || !contains(steps.current_release.outputs.tag_name, '_') }}
+        run: dart pub get
+
+      - name: Publish - dry run for dioxide
+        if: ${{ endsWith(steps.current_release.outputs.tag_name, '_dioxide') || !contains(steps.current_release.outputs.tag_name, '_') }}
+        run: dart pub publish --dry-run
+
+      - name: Publish package for dioxide
+        if: ${{ endsWith(steps.current_release.outputs.tag_name, '_dioxide') || !contains(steps.current_release.outputs.tag_name, '_') }}
+        run: dart pub publish -f
+
+      - name: Install dependencies for generator
+        if: ${{ endsWith(steps.current_release.outputs.tag_name, '_generator') || !contains(steps.current_release.outputs.tag_name, '_') }}
+        run: dart pub get
+        working-directory: generator
+
+      - name: Copy README file to generator
+        if: ${{ endsWith(steps.current_release.outputs.tag_name, '_generator') || !contains(steps.current_release.outputs.tag_name, '_') }}
+        run: cp -r ./README.md ./generator/
+
+      - name: Publish - dry run for generator
+        if: ${{ endsWith(steps.current_release.outputs.tag_name, '_generator') || !contains(steps.current_release.outputs.tag_name, '_') }}
+        run: dart pub publish --dry-run
+        working-directory: generator
+
+      - name: Publish package for generator
+        if: ${{ endsWith(steps.current_release.outputs.tag_name, '_generator') || !contains(steps.current_release.outputs.tag_name, '_') }}
+        run: dart pub publish -f
+        working-directory: generator
