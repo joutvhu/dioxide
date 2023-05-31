@@ -4,12 +4,19 @@ import 'parse.dart';
 
 /// A holder that includes all http methods which are supported by dioxide.
 class HttpMethod {
+  // ignore: constant_identifier_names
   static const String GET = "GET";
+  // ignore: constant_identifier_names
   static const String POST = "POST";
+  // ignore: constant_identifier_names
   static const String PATCH = "PATCH";
+  // ignore: constant_identifier_names
   static const String PUT = "PUT";
+  // ignore: constant_identifier_names
   static const String DELETE = "DELETE";
+  // ignore: constant_identifier_names
   static const String HEAD = "HEAD";
+  // ignore: constant_identifier_names
   static const String OPTIONS = "OPTIONS";
 }
 
