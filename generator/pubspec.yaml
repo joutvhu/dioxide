@@ -11,7 +11,7 @@ topics:
   - build-runner
 
 environment:
-  sdk: '>=2.14.0 <3.0.0'
+  sdk: '>=2.17.0 <4.0.0'
 
 scripts:
   publish: dart pub publish
@@ -22,7 +22,7 @@ dependencies:
   built_collection: ^5.1.1
   code_builder: ^4.4.0
   tuple: ^2.0.1
-  dioxide: ^1.1.0
+  dioxide: ^1.0.0
   analyzer: ">=4.6.0 <6.0.0"
   dart_style: ^2.3.0
   build: ^2.3.1

@@ -5,7 +5,7 @@ homepage: https://github.com/joutvhu/dioxide
 repository: https://github.com/joutvhu/dioxide/tree/main/dioxide
 
 environment:
-  sdk: '>=2.14.0 <3.0.0'
+  sdk: '>=2.17.0  <4.0.0'
 
 scripts:
   publish: dart pub publish
