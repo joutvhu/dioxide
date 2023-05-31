@@ -26,7 +26,11 @@ jobs:
         uses: dart-lang/setup-dart@v1
 
       - name: Setup Credentials
-        run: echo '${{ secrets.PUB_CREDENTIALS }}' > "$XDG_CONFIG_HOME/dart/pub-credentials.json"
+        uses: joutvhu/write-file@v1
+        with:
+          path: ~/.config/dart/pub-credentials.json
+          contents: ${{ secrets.PUB_CREDENTIALS }}
+          write_mode: overwrite
 
       - name: Install dependencies for dioxide
         if: ${{ endsWith(steps.current_release.outputs.tag_name, '_dioxide') || !contains(steps.current_release.outputs.tag_name, '_') }}
