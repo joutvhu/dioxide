@@ -10,11 +10,13 @@ import 'package:tuple/tuple.dart';
 
 class DioxideOptions {
   final bool? autoCastResponse;
+  final bool? emptyRequestBody;
 
-  DioxideOptions({this.autoCastResponse});
+  DioxideOptions({this.autoCastResponse, this.emptyRequestBody});
 
   DioxideOptions.fromOptions([BuilderOptions? options])
-      : autoCastResponse = (options?.config['auto_cast_response']?.toString() ?? 'true') == 'true';
+      : autoCastResponse = (options?.config['auto_cast_response']?.toString() ?? 'true') == 'true',
+        emptyRequestBody = (options?.config['empty_request_body']?.toString() ?? 'false') == 'true';
 }
 
 extension DartTypeStreamAnnotation on DartType {

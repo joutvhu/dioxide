@@ -124,7 +124,7 @@ String revivedLiteral(
     }
 
     if (constant.isSymbol) {
-      return Code('Symbol(${constant.symbolValue.toString()})');
+      return Code('Symbol(${constant.symbolValue})');
       // return literal(constant.symbolValue);
     }
 
