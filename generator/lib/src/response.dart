@@ -22,7 +22,7 @@ DartType? getResponseInnerType(DartType type) {
     return type;
   }
 
-  if (generic.isDynamic) return null;
+  if (generic.isDynamic || generic is DynamicType) return null;
 
   if (typeChecker(List).isExactlyType(type) || typeChecker(BuiltList).isExactlyType(type)) return generic;
 

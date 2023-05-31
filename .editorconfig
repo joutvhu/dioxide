@@ -21,3 +21,6 @@ ij_typescript_import_sort_module_name = true
 [*.md]
 max_line_length = off
 trim_trailing_whitespace = false
+
+[*.dart]
+max_line_length = 120

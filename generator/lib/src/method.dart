@@ -18,8 +18,7 @@ final _methodsAnnotations = const [
 ];
 
 Iterable<MethodElement> getMethodElements(ClassElement element) {
-  return (<MethodElement>[...element.methods, ...element.mixins.expand((i) => i.methods)])
-      .where((MethodElement m) {
+  return (<MethodElement>[...element.methods, ...element.mixins.expand((i) => i.methods)]).where((MethodElement m) {
     final methodAnnot = _getMethodAnnotation(m);
     return methodAnnot != null && m.isAbstract && (m.returnType.isDartAsyncFuture || m.returnType.isDartAsyncStream);
   });
@@ -42,7 +41,8 @@ Method? generateMethod(MethodElement m, Code Function(MethodElement m, ConstantR
     /// required parameters
     mm.requiredParameters.addAll(m.parameters.where((it) => it.isRequiredPositional).map((it) => Parameter((p) => p
       ..name = it.name
-      ..named = it.isNamed)));
+      ..named = it.isNamed
+      ..type = refer(it.type.getDisplayString(withNullability: true)))));
 
     /// optional positional or named parameters
     mm.optionalParameters
@@ -50,6 +50,7 @@ Method? generateMethod(MethodElement m, Code Function(MethodElement m, ConstantR
           ..required = (it.isNamed && it.type.nullabilitySuffix == NullabilitySuffix.none && !it.hasDefaultValue)
           ..name = it.name
           ..named = it.isNamed
+          ..type = refer(it.type.getDisplayString(withNullability: true))
           ..defaultTo = it.defaultValueCode == null ? null : Code(it.defaultValueCode!))));
     mm.body = _generateRequest(m, httpMehod);
   });
