@@ -25,8 +25,7 @@ void generateExtra(MethodElement m, List<Code> blocks, String localExtraVar) {
                   v?.toSetValue() ??
                   v?.toSymbolValue() ??
                   (v?.toTypeValue() ?? (v != null ? Code(revivedLiteral(v)) : Code('null'))),
-            )) ??
-        {});
+            )));
   });
 
   final extraInParam = getAnnotations(m, dioxide.Extra);

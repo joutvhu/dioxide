@@ -58,7 +58,7 @@ class RequestTimeout {
   final int? sendTimeout;
 
   /// Timeout in milliseconds for opening url.
-  /// [Dio] will throw the [DioError] with [DioErrorType.connectTimeout] type
+  /// [Dio] will throw the [DioError] with [DioErrorType.connectionTimeout] type
   ///  when time out.
   final int? connectTimeout;
 
@@ -75,6 +75,18 @@ class RequestTimeout {
     this.connectTimeout,
     this.receiveTimeout,
   });
+
+  factory RequestTimeout.fromDuration({
+    Duration? sendTimeout,
+    Duration? connectTimeout,
+    Duration? receiveTimeout,
+  }) {
+    return RequestTimeout(
+      sendTimeout: sendTimeout?.inMicroseconds,
+      connectTimeout: connectTimeout?.inMicroseconds,
+      receiveTimeout: receiveTimeout?.inMicroseconds,
+    );
+  }
 }
 
 extension FormDataExtension on FormData {

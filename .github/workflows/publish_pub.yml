@@ -36,26 +36,17 @@ jobs:
         if: ${{ endsWith(steps.current_release.outputs.tag_name, '_dioxide') || !contains(steps.current_release.outputs.tag_name, '_') }}
         run: dart pub get
 
-      - name: Publish - dry run for dioxide
-        if: ${{ endsWith(steps.current_release.outputs.tag_name, '_dioxide') || !contains(steps.current_release.outputs.tag_name, '_') }}
-        run: dart pub publish --dry-run
-
       - name: Publish package for dioxide
         if: ${{ endsWith(steps.current_release.outputs.tag_name, '_dioxide') || !contains(steps.current_release.outputs.tag_name, '_') }}
         run: dart pub publish -f
-
-      - name: Install dependencies for generator
-        if: ${{ endsWith(steps.current_release.outputs.tag_name, '_generator') || !contains(steps.current_release.outputs.tag_name, '_') }}
-        run: dart pub get
-        working-directory: generator
 
       - name: Copy README file to generator
         if: ${{ endsWith(steps.current_release.outputs.tag_name, '_generator') || !contains(steps.current_release.outputs.tag_name, '_') }}
         run: cp -r ./README.md ./generator/
 
-      - name: Publish - dry run for generator
+      - name: Install dependencies for generator
         if: ${{ endsWith(steps.current_release.outputs.tag_name, '_generator') || !contains(steps.current_release.outputs.tag_name, '_') }}
-        run: dart pub publish --dry-run
+        run: dart pub get
         working-directory: generator
 
       - name: Publish package for generator
