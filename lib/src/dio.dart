@@ -58,7 +58,7 @@ class RequestTimeout {
   final int? sendTimeout;
 
   /// Timeout in milliseconds for opening url.
-  /// [Dio] will throw the [DioError] with [DioErrorType.connectTimeout] type
+  /// [Dio] will throw the [DioError] with [DioErrorType.connectionTimeout] type
   ///  when time out.
   final int? connectTimeout;
 

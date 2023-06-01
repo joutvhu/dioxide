@@ -15,6 +15,7 @@ environment:
 
 scripts:
   publish: dart pub publish
+  publish-dry: dart pub publish --dry-run
 
 dependencies:
   dio: ^5.0.0
