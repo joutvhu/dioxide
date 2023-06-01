@@ -70,20 +70,27 @@ Iterable<Field> buildTimeoutFields() {
 Iterable<Code> buildTimeoutDefaultValue(Element element) {
   final value = _getTimeoutValue(element);
   return [
-    if (value[_sendTimeoutVar] != null) Code('$_sendTimeoutVar ??= const Duration(milliseconds: ${literal(value[_sendTimeoutVar])});'),
-    if (value[_connectTimeoutVar] != null) Code('$_connectTimeoutVar ??= const Duration(milliseconds: ${literal(value[_connectTimeoutVar])});'),
-    if (value[_receiveTimeoutVar] != null) Code('$_receiveTimeoutVar ??= const Duration(milliseconds: ${literal(value[_receiveTimeoutVar])});'),
+    if (value[_sendTimeoutVar] != null)
+      Code('$_sendTimeoutVar ??= const Duration(microseconds: ${literal(value[_sendTimeoutVar])});'),
+    if (value[_connectTimeoutVar] != null)
+      Code('$_connectTimeoutVar ??= const Duration(microseconds: ${literal(value[_connectTimeoutVar])});'),
+    if (value[_receiveTimeoutVar] != null)
+      Code('$_receiveTimeoutVar ??= const Duration(microseconds: ${literal(value[_receiveTimeoutVar])});'),
   ];
 }
 
 Map<String, Expression> buildTimeoutOptions(MethodElement element) {
   final value = _getTimeoutValue(element);
   return {
-    _sendTimeoutVar: value[_sendTimeoutVar] != null ? CodeExpression(Code('const Duration(milliseconds: ${literal(value[_sendTimeoutVar])})')) : refer(_sendTimeoutVar),
-    _connectTimeoutVar:
-        value[_connectTimeoutVar] != null ? CodeExpression(Code('const Duration(milliseconds: ${literal(value[_connectTimeoutVar])})')) : refer(_connectTimeoutVar),
-    _receiveTimeoutVar:
-        value[_receiveTimeoutVar] != null ? CodeExpression(Code('const Duration(milliseconds: ${literal(value[_receiveTimeoutVar])})')) : refer(_receiveTimeoutVar),
+    _sendTimeoutVar: value[_sendTimeoutVar] != null
+        ? CodeExpression(Code('const Duration(microseconds: ${literal(value[_sendTimeoutVar])})'))
+        : refer(_sendTimeoutVar),
+    _connectTimeoutVar: value[_connectTimeoutVar] != null
+        ? CodeExpression(Code('const Duration(microseconds: ${literal(value[_connectTimeoutVar])})'))
+        : refer(_connectTimeoutVar),
+    _receiveTimeoutVar: value[_receiveTimeoutVar] != null
+        ? CodeExpression(Code('const Duration(microseconds: ${literal(value[_receiveTimeoutVar])})'))
+        : refer(_receiveTimeoutVar),
   };
 }
 

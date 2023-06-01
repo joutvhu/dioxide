@@ -75,6 +75,18 @@ class RequestTimeout {
     this.connectTimeout,
     this.receiveTimeout,
   });
+
+  factory RequestTimeout.fromDuration({
+    Duration? sendTimeout,
+    Duration? connectTimeout,
+    Duration? receiveTimeout,
+  }) {
+    return RequestTimeout(
+      sendTimeout: sendTimeout?.inMicroseconds,
+      connectTimeout: connectTimeout?.inMicroseconds,
+      receiveTimeout: receiveTimeout?.inMicroseconds,
+    );
+  }
 }
 
 extension FormDataExtension on FormData {
