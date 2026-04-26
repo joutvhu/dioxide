@@ -53,12 +53,18 @@ class RestApi {
   /// Parse on a separate isolate using `compute` (Flutter only).
   final bool compute;
 
+  /// A [CallAdapter] subclass to apply to all methods in this API.
+  ///
+  /// Can be overridden per-method with [@UseCallAdapter].
+  final Type? callAdapter;
+
   const RestApi({
     this.baseUrl,
     this.autoCastResponse,
     this.serializer = Parser.MapSerializable,
     this.deserializer = Parser.MapSerializable,
-    this.compute = false
+    this.compute = false,
+    this.callAdapter,
   });
 
   /// Automatically cast response to proper type for all methods in this client
@@ -322,4 +328,46 @@ class CacheControl {
     this.onlyIfCached = false,
     this.other = const [],
   });
+}
+
+/// Adapts a call with return type [R] into type [T].
+///
+/// Example — wrap every response in a `Result<T>`:
+/// ```dart
+/// class ResultAdapter<T> extends CallAdapter<Future<T>, Future<Result<T>>> {
+///   @override
+///   Future<Result<T>> adapt(Future<T> Function() call) async {
+///     try {
+///       return Success(await call());
+///     } catch (e) {
+///       return Failure(e);
+///     }
+///   }
+/// }
+/// ```
+///
+/// Your subclass **must** accept exactly one type parameter `<T>`.
+abstract class CallAdapter<R, T> {
+  /// Adapts [call] (which returns [R]) into [T].
+  T adapt(R Function() call);
+}
+
+/// Apply a [CallAdapter] to a single method.
+///
+/// ```dart
+/// @UseCallAdapter(ResultAdapter)
+/// @GetRequest('/users')
+/// Future<Result<List<User>>> getUsers();
+/// ```
+///
+/// To apply an adapter to **all** methods in an API, pass it to [@RestApi]:
+/// ```dart
+/// @RestApi(callAdapter: ResultAdapter)
+/// abstract class UserApi { ... }
+/// ```
+@immutable
+class UseCallAdapter {
+  final Type callAdapter;
+
+  const UseCallAdapter(this.callAdapter);
 }
