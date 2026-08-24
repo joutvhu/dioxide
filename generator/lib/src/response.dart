@@ -22,7 +22,7 @@ DartType? getResponseInnerType(DartType type) {
     return type;
   }
 
-  if (generic.isDynamic || generic is DynamicType) return null;
+  if (generic is DynamicType) return null;
 
   if (typeChecker(List).isExactlyType(type) || typeChecker(BuiltList).isExactlyType(type)) return generic;
 
@@ -34,3 +34,4 @@ ConstantReader? getResponseTypeAnnotation(MethodElement method) {
   if (annotation != null) return ConstantReader(annotation);
   return null;
 }
+

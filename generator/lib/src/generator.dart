@@ -118,7 +118,7 @@ class DioxideGenerator extends GeneratorForAnnotation<dioxide.RestApi> {
     });
 
     final emitter = DartEmitter();
-    return DartFormatter()
+    return DartFormatter(languageVersion: DartFormatter.latestLanguageVersion)
         .format([_analyzerIgnores, classBuilder.accept(emitter)].join('\n\n'));
   }
 
@@ -1209,7 +1209,7 @@ You should create a new class to encapsulate the response.
                 'It is programmer\'s responsibility to make sure the ${displayString(_bodyName.type)} is properly serialized');
             blocks.add(
                 refer(_bodyName.displayName).assignFinal(_dataVar).statement);
-          } else if (_missingSerialize(ele.enclosingElement, _bodyName.type)) {
+          } else if (_missingSerialize(ele.library.definingCompilationUnit, _bodyName.type)) {
             log.warning(
                 '${displayString(_bodyName.type)} must provide a `serialize${displayString(_bodyName.type)}()` method which returns a Map.\n'
                 'It is programmer\'s responsibility to make sure the ${displayString(_bodyName.type)} is properly serialized');
@@ -1581,3 +1581,4 @@ You should create a new class to encapsulate the response.
 
 Builder generatorFactoryBuilder(BuilderOptions options) => SharedPartBuilder(
     [DioxideGenerator(DioxideOptions.fromOptions(options))], 'dioxide');
+
